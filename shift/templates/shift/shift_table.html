@@ -1,0 +1,64 @@
+{% load shift_extras %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>シフト表</title>
+    <style>
+        table { border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: center; }
+        th { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>{{ year }}年{{ month }}月 シフト表</h1>
+    <div>
+        {% if show_prev %}<a href="?year={{ prev_year }}&month={{ prev_month }}">前月</a>{% endif %}
+        {% if show_prev and show_next %}|{% endif %}
+        {% if show_next %}<a href="?year={{ next_year }}&month={{ next_month }}">翌月</a>{% endif %}
+    </div>
+    <div style="margin: 10px 0;">
+        <form method="get" action="" style="display:inline-block;">
+            <label>年:
+                <select name="year">
+                    {% for y in min_year|to:max_year %}
+                        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>月:
+                <select name="month">
+                    {% for m in 1|to:13 %}
+                        <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit">表示</button>
+        </form>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>従業員名</th>
+                {% for d in days %}
+                    <th>{{ d.day }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in employees %}
+            <tr>
+                <td>{{ emp.name }}</td>
+                {% for d in days %}
+                    {% with key=emp.id|stringformat:'s'|add:'_'|add:d|date:'Y-m-d' %}
+                        {% with shift=shift_dict|get_item:key %}
+                            <td>{% if shift %}{{ shift.shift_type.name }}{% endif %}</td>
+                        {% endwith %}
+                    {% endwith %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html> 
