@@ -1,11 +1,12 @@
 from django.contrib import admin
-from .models import Employee, ShiftType, Shift
+from .models import Employee, ShiftType, Shift, CompanyHoliday
 from django.urls import reverse
 from django.utils.html import format_html
 
 admin.site.register(Employee)
 admin.site.register(ShiftType)
 admin.site.register(Shift)
+admin.site.register(CompanyHoliday)
 
 # 管理画面の上部に「シフト表」リンクを追加
 admin.site.site_header = "シフト管理"
