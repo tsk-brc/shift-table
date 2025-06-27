@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.utils import timezone
 from calendar import monthrange
 from datetime import date, timedelta
-from .models import Employee, Shift, ShiftType
+from .models import Employee, Shift, ShiftType, CompanyHoliday
 import jpholiday
 
 # Create your views here.
@@ -14,6 +14,10 @@ def shift_table(request):
     num_days = monthrange(year, month)[1]
     days = [date(year, month, d) for d in range(1, num_days+1)]
 
+    # 会社休日を取得
+    company_holidays = CompanyHoliday.objects.filter(date__year=year, date__month=month)
+    company_holiday_dates = {ch.date: ch.name for ch in company_holidays}
+
     # 各日付の曜日と祝日情報を取得
     day_info = {}
     for d in days:
@@ -22,9 +26,10 @@ def shift_table(request):
         is_holiday = jpholiday.is_holiday(d)
         is_saturday = d.weekday() == 5
         is_sunday = d.weekday() == 6
+        is_company_holiday = d in company_holiday_dates
         
         # 色の決定
-        if is_holiday or is_sunday:
+        if is_holiday or is_sunday or is_company_holiday:
             color = 'red'
         elif is_saturday:
             color = 'blue'
@@ -34,7 +39,9 @@ def shift_table(request):
         day_info[d] = {
             'weekday': weekday_ja,
             'color': color,
-            'is_holiday': is_holiday
+            'is_holiday': is_holiday,
+            'is_company_holiday': is_company_holiday,
+            'company_holiday_name': company_holiday_dates.get(d, '')
         }
 
     # 年月の範囲
@@ -82,5 +89,6 @@ def shift_table(request):
         'show_next': show_next,
         'min_year': MIN_YEAR,
         'max_year': MAX_YEAR,
+        'months': range(1, 13),
     }
     return render(request, 'shift/shift_table.html', context)

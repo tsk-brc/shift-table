@@ -22,6 +22,19 @@ class ShiftType(models.Model):
         verbose_name = 'シフト種別'
         verbose_name_plural = 'シフト種別'
 
+class CompanyHoliday(models.Model):
+    date = models.DateField('日付', unique=True)
+    name = models.CharField('休日名', max_length=100)
+    description = models.TextField('説明', blank=True)
+
+    def __str__(self):
+        return f"{self.date} {self.name}"
+
+    class Meta:
+        verbose_name = '会社休日'
+        verbose_name_plural = '会社休日'
+        ordering = ['date']
+
 class Shift(models.Model):
     employee = models.ForeignKey(Employee, verbose_name='従業員', on_delete=models.CASCADE)
     date = models.DateField('日付')
