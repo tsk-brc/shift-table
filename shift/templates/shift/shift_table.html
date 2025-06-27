@@ -8,6 +8,8 @@
         table { border-collapse: collapse; }
         th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: center; }
         th { background: #f0f0f0; }
+        .date-cell { font-size: 12px; }
+        .weekday { font-size: 10px; }
     </style>
 </head>
 <body>
@@ -41,7 +43,12 @@
             <tr>
                 <th>従業員名</th>
                 {% for d in days %}
-                    <th>{{ d.day }}</th>
+                    <th>
+                        <div class="date-cell" style="color: {{ day_info|get_item:d|get_item:'color' }};">
+                            {{ d.day }}<br>
+                            <span class="weekday">({{ day_info|get_item:d|get_item:'weekday' }})</span>
+                        </div>
+                    </th>
                 {% endfor %}
             </tr>
         </thead>

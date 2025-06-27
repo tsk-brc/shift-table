@@ -3,6 +3,7 @@ from django.utils import timezone
 from calendar import monthrange
 from datetime import date, timedelta
 from .models import Employee, Shift, ShiftType
+import jpholiday
 
 # Create your views here.
 
@@ -12,6 +13,29 @@ def shift_table(request):
     month = int(request.GET.get('month', timezone.now().month))
     num_days = monthrange(year, month)[1]
     days = [date(year, month, d) for d in range(1, num_days+1)]
+
+    # 各日付の曜日と祝日情報を取得
+    day_info = {}
+    for d in days:
+        weekday = d.strftime('%a')  # Mon, Tue, Wed, etc.
+        weekday_ja = {'Mon': '月', 'Tue': '火', 'Wed': '水', 'Thu': '木', 'Fri': '金', 'Sat': '土', 'Sun': '日'}[weekday]
+        is_holiday = jpholiday.is_holiday(d)
+        is_saturday = d.weekday() == 5
+        is_sunday = d.weekday() == 6
+        
+        # 色の決定
+        if is_holiday or is_sunday:
+            color = 'red'
+        elif is_saturday:
+            color = 'blue'
+        else:
+            color = 'black'
+            
+        day_info[d] = {
+            'weekday': weekday_ja,
+            'color': color,
+            'is_holiday': is_holiday
+        }
 
     # 年月の範囲
     MIN_YEAR, MAX_YEAR = 1900, 2099
@@ -45,6 +69,7 @@ def shift_table(request):
         'year': year,
         'month': month,
         'days': days,
+        'day_info': day_info,
         'employees': employees,
         'shift_dict': shift_dict,
         'shift_types': shift_types,
