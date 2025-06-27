@@ -50,10 +50,8 @@
             <tr>
                 <td>{{ emp.name }}</td>
                 {% for d in days %}
-                    {% with key=emp.id|stringformat:'s'|add:'_'|add:d|date:'Y-m-d' %}
-                        {% with shift=shift_dict|get_item:key %}
-                            <td>{% if shift %}{{ shift.shift_type.name }}{% endif %}</td>
-                        {% endwith %}
+                    {% with shift=employee_shifts|get_item:emp.id|get_item:d %}
+                        <td>{% if shift %}{{ shift.shift_type.name }}{% endif %}</td>
                     {% endwith %}
                 {% endfor %}
             </tr>

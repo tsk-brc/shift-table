@@ -33,6 +33,14 @@ def shift_table(request):
     shift_dict = {f"{s.employee_id}_{s.date.isoformat()}": s for s in shifts}
     shift_types = {st.id: st.name for st in ShiftType.objects.all()}
 
+    # 各従業員×日付のシフト情報を事前に整理
+    employee_shifts = {}
+    for emp in employees:
+        employee_shifts[emp.id] = {}
+        for d in days:
+            key = f"{emp.id}_{d.isoformat()}"
+            employee_shifts[emp.id][d] = shift_dict.get(key)
+
     context = {
         'year': year,
         'month': month,
@@ -40,6 +48,7 @@ def shift_table(request):
         'employees': employees,
         'shift_dict': shift_dict,
         'shift_types': shift_types,
+        'employee_shifts': employee_shifts,
         'prev_year': prev_year,
         'prev_month': prev_month,
         'next_year': next_year,
