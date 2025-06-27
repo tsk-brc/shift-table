@@ -30,7 +30,7 @@
             </label>
             <label>月:
                 <select name="month">
-                    {% for m in 1|to:13 %}
+                    {% for m in months %}
                         <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>
                     {% endfor %}
                 </select>
