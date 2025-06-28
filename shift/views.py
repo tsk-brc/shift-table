@@ -11,12 +11,13 @@ import json
 
 # Create your views here.
 
+
 def shift_table(request):
     # 年月の取得（クエリパラメータ or 今日）
-    year = int(request.GET.get('year', timezone.now().year))
-    month = int(request.GET.get('month', timezone.now().month))
+    year = int(request.GET.get("year", timezone.now().year))
+    month = int(request.GET.get("month", timezone.now().month))
     num_days = monthrange(year, month)[1]
-    days = [date(year, month, d) for d in range(1, num_days+1)]
+    days = [date(year, month, d) for d in range(1, num_days + 1)]
 
     # 会社休日を取得
     company_holidays = CompanyHoliday.objects.filter(date__year=year, date__month=month)
@@ -25,27 +26,35 @@ def shift_table(request):
     # 各日付の曜日と祝日情報を取得
     day_info = {}
     for d in days:
-        weekday = d.strftime('%a')  # Mon, Tue, Wed, etc.
-        weekday_ja = {'Mon': '月', 'Tue': '火', 'Wed': '水', 'Thu': '木', 'Fri': '金', 'Sat': '土', 'Sun': '日'}[weekday]
+        weekday = d.strftime("%a")  # Mon, Tue, Wed, etc.
+        weekday_ja = {
+            "Mon": "月",
+            "Tue": "火",
+            "Wed": "水",
+            "Thu": "木",
+            "Fri": "金",
+            "Sat": "土",
+            "Sun": "日",
+        }[weekday]
         is_holiday = jpholiday.is_holiday(d)
         is_saturday = d.weekday() == 5
         is_sunday = d.weekday() == 6
         is_company_holiday = d in company_holiday_dates
-        
+
         # 色の決定
         if is_holiday or is_sunday or is_company_holiday:
-            color = 'red'
+            color = "red"
         elif is_saturday:
-            color = 'blue'
+            color = "blue"
         else:
-            color = 'black'
-            
+            color = "black"
+
         day_info[d] = {
-            'weekday': weekday_ja,
-            'color': color,
-            'is_holiday': is_holiday,
-            'is_company_holiday': is_company_holiday,
-            'company_holiday_name': company_holiday_dates.get(d, '')
+            "weekday": weekday_ja,
+            "color": color,
+            "is_holiday": is_holiday,
+            "is_company_holiday": is_company_holiday,
+            "company_holiday_name": company_holiday_dates.get(d, ""),
         }
 
     # 年月の範囲
@@ -78,26 +87,27 @@ def shift_table(request):
             employee_shifts[emp.id][d] = shift_dict.get(key)
 
     context = {
-        'year': year,
-        'month': month,
-        'days': days,
-        'day_info': day_info,
-        'employees': employees,
-        'shift_dict': shift_dict,
-        'shift_types': shift_types,
-        'shift_types_list': shift_types_list,  # テンプレート用
-        'employee_shifts': employee_shifts,
-        'prev_year': prev_year,
-        'prev_month': prev_month,
-        'next_year': next_year,
-        'next_month': next_month,
-        'show_prev': show_prev,
-        'show_next': show_next,
-        'min_year': MIN_YEAR,
-        'max_year': MAX_YEAR,
-        'months': range(1, 13),
+        "year": year,
+        "month": month,
+        "days": days,
+        "day_info": day_info,
+        "employees": employees,
+        "shift_dict": shift_dict,
+        "shift_types": shift_types,
+        "shift_types_list": shift_types_list,  # テンプレート用
+        "employee_shifts": employee_shifts,
+        "prev_year": prev_year,
+        "prev_month": prev_month,
+        "next_year": next_year,
+        "next_month": next_month,
+        "show_prev": show_prev,
+        "show_next": show_next,
+        "min_year": MIN_YEAR,
+        "max_year": MAX_YEAR,
+        "months": range(1, 13),
     }
-    return render(request, 'shift/shift_table.html', context)
+    return render(request, "shift/shift_table.html", context)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -105,28 +115,30 @@ def save_shift(request):
     """シフト保存API"""
     try:
         data = json.loads(request.body)
-        employee_id = data.get('employee_id')
-        shift_date = data.get('date')
-        shift_type_id = data.get('shift_type_id')
-        shift_id = data.get('shift_id')
-        
+        employee_id = data.get("employee_id")
+        shift_date = data.get("date")
+        shift_type_id = data.get("shift_type_id")
+        shift_id = data.get("shift_id")
+
         # バリデーション
         if not employee_id or not shift_date or not shift_type_id:
-            return JsonResponse({'success': False, 'error': '必須項目が不足しています'})
-        
+            return JsonResponse({"success": False, "error": "必須項目が不足しています"})
+
         # 日付の変換
         try:
             date_obj = date.fromisoformat(shift_date)
         except ValueError:
-            return JsonResponse({'success': False, 'error': '無効な日付です'})
-        
+            return JsonResponse({"success": False, "error": "無効な日付です"})
+
         # 従業員とシフト種別の存在確認
         try:
             employee = Employee.objects.get(id=employee_id)
             shift_type = ShiftType.objects.get(id=shift_type_id)
         except (Employee.DoesNotExist, ShiftType.DoesNotExist):
-            return JsonResponse({'success': False, 'error': '従業員またはシフト種別が見つかりません'})
-        
+            return JsonResponse(
+                {"success": False, "error": "従業員またはシフト種別が見つかりません"}
+            )
+
         # シフトの保存または更新
         if shift_id:
             # 更新
@@ -135,31 +147,31 @@ def save_shift(request):
                 shift.shift_type = shift_type
                 shift.save()
             except Shift.DoesNotExist:
-                return JsonResponse({'success': False, 'error': 'シフトが見つかりません'})
+                return JsonResponse(
+                    {"success": False, "error": "シフトが見つかりません"}
+                )
         else:
             # 新規作成
             shift, created = Shift.objects.get_or_create(
-                employee=employee,
-                date=date_obj,
-                defaults={'shift_type': shift_type}
+                employee=employee, date=date_obj, defaults={"shift_type": shift_type}
             )
             if not created:
-                return JsonResponse({'success': False, 'error': '既にシフトが登録されています'})
-        
+                return JsonResponse(
+                    {"success": False, "error": "既にシフトが登録されています"}
+                )
+
         # 連続勤務日数制限の警告チェック
         warning = shift.check_consecutive_work_days()
         if warning:
-            return JsonResponse({
-                'success': True, 
-                'warning': warning['message']
-            })
-        
-        return JsonResponse({'success': True})
-        
+            return JsonResponse({"success": True, "warning": warning["message"]})
+
+        return JsonResponse({"success": True})
+
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': '無効なJSONデータです'})
+        return JsonResponse({"success": False, "error": "無効なJSONデータです"})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        return JsonResponse({"success": False, "error": str(e)})
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -168,8 +180,8 @@ def delete_shift(request, shift_id):
     try:
         shift = Shift.objects.get(id=shift_id)
         shift.delete()
-        return JsonResponse({'success': True})
+        return JsonResponse({"success": True})
     except Shift.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'シフトが見つかりません'})
+        return JsonResponse({"success": False, "error": "シフトが見つかりません"})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        return JsonResponse({"success": False, "error": str(e)})
