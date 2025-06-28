@@ -81,13 +81,16 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
                         current = start_date
                         while current <= end_date:
                             # 祝日かどうかをチェック
-                            # if jpholiday.is_holiday(current):
-                            #     holiday, created = CompanyHoliday.objects.get_or_create(
-                            #         date=current,
-                            #         defaults={'name': holiday_name or f'祝日', 'description': ''}
-                            #     )
-                            #     if created:
-                            #         created_count += 1
+                            if jpholiday and jpholiday.is_holiday(current):
+                                holiday, created = CompanyHoliday.objects.get_or_create(
+                                    date=current,
+                                    defaults={
+                                        "name": holiday_name or f"祝日",
+                                        "description": "",
+                                    },
+                                )
+                                if created:
+                                    created_count += 1
                             current += timedelta(days=1)
 
                     elif holiday_type == "date_range":
@@ -127,10 +130,10 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
 
 @admin.register(ShiftType)
 class ShiftTypeAdmin(admin.ModelAdmin):
-    list_display = ["name", "is_work", "color_display"]
+    list_display = ["name", "is_work", "min_workers", "max_workers", "color_display"]
     list_filter = ["is_work"]
     search_fields = ["name"]
-    fields = ["name", "is_work", "color"]
+    fields = ["name", "is_work", "min_workers", "max_workers", "color"]
     form = ShiftTypeForm
 
     def color_display(self, obj):

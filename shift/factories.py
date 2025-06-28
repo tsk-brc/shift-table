@@ -33,6 +33,8 @@ class ShiftTypeFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"シフト{n}")
     is_work = True
     color = "#ffffff"
+    min_workers = 1
+    max_workers = None
 
 
 class WorkShiftTypeFactory(ShiftTypeFactory):

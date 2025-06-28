@@ -83,6 +83,25 @@ class ShiftTypeModelTest(TestCase):
         with self.assertRaises(Exception):
             ShiftTypeFactory(name=f"出勤_{self._testMethodName}")
 
+    def test_shift_type_worker_limits(self):
+        """Test shift type worker limits."""
+        shift_type = ShiftTypeFactory(min_workers=2, max_workers=3)
+        self.assertEqual(shift_type.min_workers, 2)
+        self.assertEqual(shift_type.max_workers, 3)
+
+    def test_shift_type_worker_limits_validation(self):
+        """Test shift type worker limits validation."""
+        with self.assertRaises(ValidationError):
+            shift_type = ShiftTypeFactory(min_workers=3, max_workers=2)
+            shift_type.clean()
+
+    def test_shift_type_no_max_workers(self):
+        """Test shift type without max workers."""
+        shift_type = ShiftTypeFactory(min_workers=1, max_workers=None)
+        self.assertIsNone(shift_type.max_workers)
+        # バリデーションエラーが発生しないことを確認
+        shift_type.clean()
+
 
 class CompanyHolidayModelTest(TestCase):
     """CompanyHoliday model tests."""
@@ -677,4 +696,45 @@ class ShiftModelTest(TestCase):
         
         # 会社休日を除いても、勤務日数は均等に分配される
         self.assertLessEqual(max_work_days - min_work_days, 7, 
-            f"Work days distribution is too uneven: min={min_work_days}, max={max_work_days}") 
+            f"Work days distribution is too uneven: min={min_work_days}, max={max_work_days}")
+
+    def test_shift_check_shift_type_worker_limits_min_workers(self):
+        """Test shift check shift type worker limits for min workers."""
+        shift_type = ShiftTypeFactory(min_workers=2, max_workers=None)
+        employee = EmployeeFactory()
+        shift = ShiftFactory(employee=employee, shift_type=shift_type)
+        
+        # 最低人数を下回る場合の警告
+        warning = shift.check_shift_type_worker_limits()
+        self.assertIsNotNone(warning)
+        self.assertTrue(warning['warning'])
+        self.assertIn('最低人数', warning['message'])
+
+    def test_shift_check_shift_type_worker_limits_max_workers(self):
+        """Test shift check shift type worker limits for max workers."""
+        shift_type = ShiftTypeFactory(min_workers=1, max_workers=2)
+        employee1 = EmployeeFactory()
+        employee2 = EmployeeFactory()
+        employee3 = EmployeeFactory()
+        
+        # 既に2人のシフトがある状態で3人目を追加
+        ShiftFactory(employee=employee1, shift_type=shift_type, date=date(2025, 1, 1))
+        ShiftFactory(employee=employee2, shift_type=shift_type, date=date(2025, 1, 1))
+        
+        shift3 = ShiftFactory(employee=employee3, shift_type=shift_type, date=date(2025, 1, 1))
+        
+        # 最大人数を超える場合の警告
+        warning = shift3.check_shift_type_worker_limits()
+        self.assertIsNotNone(warning)
+        self.assertTrue(warning['warning'])
+        self.assertIn('最大人数', warning['message'])
+
+    def test_shift_check_shift_type_worker_limits_rest_shift(self):
+        """Test shift check shift type worker limits for rest shift."""
+        shift_type = ShiftTypeFactory(is_work=False, min_workers=1, max_workers=2)
+        employee = EmployeeFactory()
+        shift = ShiftFactory(employee=employee, shift_type=shift_type)
+        
+        # 休みの場合はチェックしない
+        warning = shift.check_shift_type_worker_limits()
+        self.assertIsNone(warning) 
