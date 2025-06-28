@@ -66,6 +66,12 @@ class ShiftForm(forms.ModelForm):
                 if warning:
                     # 警告をフォームに追加（登録は可能）
                     self.add_warning("shift_type", warning["message"])
+                
+                # シフト種別ごとの人数制限をチェック
+                worker_limit_warning = temp_shift.check_shift_type_worker_limits()
+                if worker_limit_warning:
+                    # 警告をフォームに追加（登録は可能）
+                    self.add_warning("shift_type", worker_limit_warning["message"])
 
         return cleaned_data
 
@@ -126,7 +132,7 @@ class ShiftTypeForm(forms.ModelForm):
     )
     class Meta:
         model = ShiftType
-        fields = ['name', 'is_work', 'color']
+        fields = ['name', 'is_work', 'min_workers', 'max_workers', 'color']
 
 class CompanyHolidayBulkAddForm(forms.Form):
     HOLIDAY_TYPE_CHOICES = [
