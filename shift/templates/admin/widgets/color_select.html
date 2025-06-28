@@ -1,0 +1,38 @@
+{% comment %}カスタム色判定用にプリセットカラーコードリストを作成{% endcomment %}
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+  {% for code, label in widget.color_choices %}
+    <label style="display: flex; align-items: center; cursor: pointer;">
+      <input type="radio" name="{{ widget.name }}" value="{{ code }}" {% if widget.value == code %}checked{% endif %} style="margin-right: 4px;">
+      <span style="display: inline-block; width: 20px; height: 20px; background: {{ code }}; border-radius: 3px; border: 1px solid #ccc; margin-right: 4px;"></span>
+      <span>{{ label }}</span>
+    </label>
+  {% endfor %}
+  <label style="display: flex; align-items: center; white-space: nowrap;">
+    <input type="radio" name="{{ widget.name }}" value="custom" {% if widget.value and widget.value not in widget.preset_codes %}checked{% endif %} style="margin-right: 4px;">
+    <span>カスタム:</span>
+    <input type="text" name="{{ widget.name }}_custom" value="{% if widget.value and widget.value not in widget.preset_codes %}{{ widget.value }}{% endif %}" placeholder="#xxxxxx" style="width: 80px; margin-left: 4px;" maxlength="7">
+  </label>
+</div>
+<script>
+(function() {
+  // カスタム入力欄の値を選択時にcolorフィールドに反映
+  const radios = document.querySelectorAll('input[type=radio][name="{{ widget.name }}"]');
+  const customInput = document.querySelector('input[type=text][name="{{ widget.name }}_custom"]');
+  radios.forEach(radio => {
+    radio.addEventListener('change', function() {
+      if (this.value === 'custom' && customInput) {
+        customInput.focus();
+      }
+    });
+  });
+  if (customInput) {
+    customInput.addEventListener('input', function() {
+      const customRadio = document.querySelector('input[type=radio][name="{{ widget.name }}"][value="custom"]');
+      if (customRadio) {
+        customRadio.checked = true;
+        customRadio.value = this.value;
+      }
+    });
+  }
+})();
+</script> 
