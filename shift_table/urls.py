@@ -17,8 +17,42 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.contrib.auth import views as auth_views
+from shift.views import direct_password_change
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("shift/", include("shift.urls")),
+    # 直接パスワード変更機能
+    path('direct-password-change/', direct_password_change, name='direct_password_change'),
+    # パスワードリセット機能（管理画面用）
+    path('admin-password-reset/', auth_views.PasswordResetView.as_view(
+        template_name='registration/password_reset_form.html',
+        email_template_name='registration/password_reset_email.html',
+        subject_template_name='registration/password_reset_subject.txt'
+    ), name='admin_password_reset'),
+    path('admin-password-reset/done/', auth_views.PasswordResetDoneView.as_view(
+        template_name='registration/password_reset_done.html'
+    ), name='admin_password_reset_done'),
+    path('admin-reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
+        template_name='registration/password_reset_confirm.html'
+    ), name='admin_password_reset_confirm'),
+    path('admin-reset/done/', auth_views.PasswordResetCompleteView.as_view(
+        template_name='registration/password_reset_complete.html'
+    ), name='admin_password_reset_complete'),
+    # パスワードリセット機能（一般用）
+    path('password_reset/', auth_views.PasswordResetView.as_view(
+        template_name='registration/password_reset_form.html',
+        email_template_name='registration/password_reset_email.html',
+        subject_template_name='registration/password_reset_subject.txt'
+    ), name='password_reset'),
+    path('password_reset/done/', auth_views.PasswordResetDoneView.as_view(
+        template_name='registration/password_reset_done.html'
+    ), name='password_reset_done'),
+    path('reset/<uidb64>/<token>/', auth_views.PasswordResetConfirmView.as_view(
+        template_name='registration/password_reset_confirm.html'
+    ), name='password_reset_confirm'),
+    path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
+        template_name='registration/password_reset_complete.html'
+    ), name='password_reset_complete'),
 ]

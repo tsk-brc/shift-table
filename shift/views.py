@@ -1,13 +1,17 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from calendar import monthrange
 from datetime import date, timedelta
-from .models import Employee, Shift, ShiftType, CompanyHoliday
+from .models import Employee, Shift, ShiftType, CompanyHoliday, LaborLawSettings
 import jpholiday
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import views as auth_views
+from django.urls import reverse_lazy
+from .forms import ShiftForm
 
 # Create your views here.
 
@@ -207,3 +211,46 @@ def delete_shift(request, shift_id):
         return JsonResponse({"success": False, "error": "シフトが見つかりません"})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
+
+
+def direct_password_change(request):
+    """直接パスワード変更機能"""
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        # バリデーション
+        if not username or not new_password or not confirm_password:
+            return render(request, 'registration/direct_password_change.html', {
+                'error': 'すべての項目を入力してください。'
+            })
+        
+        if new_password != confirm_password:
+            return render(request, 'registration/direct_password_change.html', {
+                'error': 'パスワードが一致しません。'
+            })
+        
+        if len(new_password) < 8:
+            return render(request, 'registration/direct_password_change.html', {
+                'error': 'パスワードは8文字以上で入力してください。'
+            })
+        
+        # ユーザーの存在確認
+        try:
+            from django.contrib.auth.models import User
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return render(request, 'registration/direct_password_change.html', {
+                'error': '指定されたユーザー名が見つかりません。'
+            })
+        
+        # パスワード変更
+        user.set_password(new_password)
+        user.save()
+        
+        return render(request, 'registration/direct_password_change_success.html', {
+            'username': username
+        })
+    
+    return render(request, 'registration/direct_password_change.html')
