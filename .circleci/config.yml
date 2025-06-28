@@ -29,7 +29,7 @@ jobs:
       - run:
           name: Run tests with coverage
           command: |
-            pytest shift/test_files/ --cov=shift --cov=shift_table --cov-report=xml --cov-report=html
+            DJANGO_SETTINGS_MODULE=shift_table.settings_test pytest shift/test_files/ --cov=shift --cov=shift_table --cov-report=xml --cov-report=html
       - store_artifacts:
           path: htmlcov
           destination: coverage
