@@ -9,7 +9,7 @@ from django.urls import path
 from django.shortcuts import render, redirect
 from django import forms
 from datetime import date, timedelta
-import jpholiday
+# import jpholiday
 from calendar import monthrange
 import re
 from django.http import HttpResponse
@@ -68,13 +68,13 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
                         current = start_date
                         while current <= end_date:
                             # 祝日かどうかをチェック
-                            if jpholiday.is_holiday(current):
-                                holiday, created = CompanyHoliday.objects.get_or_create(
-                                    date=current,
-                                    defaults={'name': holiday_name or f'祝日', 'description': ''}
-                                )
-                                if created:
-                                    created_count += 1
+                            # if jpholiday.is_holiday(current):
+                            #     holiday, created = CompanyHoliday.objects.get_or_create(
+                            #         date=current,
+                            #         defaults={'name': holiday_name or f'祝日', 'description': ''}
+                            #     )
+                            #     if created:
+                            #         created_count += 1
                             current += timedelta(days=1)
                     
                     elif holiday_type == 'date_range':
