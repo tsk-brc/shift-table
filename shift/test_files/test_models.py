@@ -14,11 +14,11 @@ from django.db import IntegrityError
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
 django.setup()
 
-from ..models import Employee, ShiftType, CompanyHoliday, LaborLawSettings, Shift
+from ..models import Employee, ShiftType, CompanyHoliday, LaborLawSettings, Shift, Role
 from ..factories import (
     EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory, 
     RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory,
-    ShiftFactory, RestShiftFactory
+    ShiftFactory, RestShiftFactory, RoleFactory, ShiftTypeRoleMinWorkerFactory
 )
 
 
@@ -41,6 +41,21 @@ class EmployeeModelTest(TestCase):
         """Test employee verbose names."""
         self.assertEqual(Employee._meta.verbose_name, "従業員")
         self.assertEqual(Employee._meta.verbose_name_plural, "従業員")
+
+    def test_employee_roles(self):
+        """Test employee roles."""
+        role1 = RoleFactory(name="ホール")
+        role2 = RoleFactory(name="キッチン")
+        employee = EmployeeFactory(roles=[role1, role2])
+        
+        self.assertEqual(employee.roles.count(), 2)
+        self.assertIn(role1, employee.roles.all())
+        self.assertIn(role2, employee.roles.all())
+
+    def test_employee_no_roles(self):
+        """Test employee without roles."""
+        employee = EmployeeFactory()
+        self.assertEqual(employee.roles.count(), 0)
 
 
 class ShiftTypeModelTest(TestCase):
@@ -101,6 +116,26 @@ class ShiftTypeModelTest(TestCase):
         self.assertIsNone(shift_type.max_workers)
         # バリデーションエラーが発生しないことを確認
         shift_type.clean()
+
+    def test_shift_type_role_min_workers(self):
+        """シフト種別の役割別最低人数をテスト"""
+        role1 = RoleFactory(name="ホール")
+        role2 = RoleFactory(name="キッチン")
+        shift_type = ShiftTypeFactory()
+        
+        # 役割別最低人数を設定
+        ShiftTypeRoleMinWorkerFactory(shift_type=shift_type, role=role1, min_workers=2)
+        ShiftTypeRoleMinWorkerFactory(shift_type=shift_type, role=role2, min_workers=1)
+        
+        # 確認
+        self.assertEqual(shift_type.role_min_workers.count(), 2)
+        self.assertEqual(shift_type.role_min_workers.get(role=role1).min_workers, 2)
+        self.assertEqual(shift_type.role_min_workers.get(role=role2).min_workers, 1)
+
+    def test_shift_type_empty_role_min_workers(self):
+        """空の役割別最低人数をテスト"""
+        shift_type = ShiftTypeFactory()
+        self.assertEqual(shift_type.role_min_workers.count(), 0)
 
 
 class CompanyHolidayModelTest(TestCase):
@@ -737,4 +772,31 @@ class ShiftModelTest(TestCase):
         
         # 休みの場合はチェックしない
         warning = shift.check_shift_type_worker_limits()
-        self.assertIsNone(warning) 
+        self.assertIsNone(warning)
+
+
+class RoleModelTest(TestCase):
+    """Role model tests."""
+
+    def test_role_creation(self):
+        """Test role creation."""
+        role = RoleFactory()
+        self.assertIsNotNone(role.id)
+        self.assertIsInstance(role.name, str)
+        self.assertIsInstance(role.description, str)
+
+    def test_role_str(self):
+        """Test role string representation."""
+        role = RoleFactory(name="ホール")
+        self.assertEqual(str(role), "ホール")
+
+    def test_role_verbose_name(self):
+        """Test role verbose names."""
+        self.assertEqual(Role._meta.verbose_name, "役割")
+        self.assertEqual(Role._meta.verbose_name_plural, "役割")
+
+    def test_role_unique_name(self):
+        """Test role name uniqueness."""
+        RoleFactory(name="ホール")
+        with self.assertRaises(Exception):
+            RoleFactory(name="ホール") 

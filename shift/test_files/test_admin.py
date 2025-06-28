@@ -18,7 +18,7 @@ from ..admin import (
 from ..factories import (
     EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory, 
     RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory,
-    ShiftFactory, UserFactory
+    ShiftFactory, UserFactory, RoleFactory
 )
 
 # Django設定を確実に読み込む
@@ -121,9 +121,25 @@ class AdminViewTest(TestCase):
 
     def test_shift_type_admin_add_view(self):
         """Test shift type admin add view."""
+        # 役割を作成
+        role1 = RoleFactory(name="ホール")
+        role2 = RoleFactory(name="キッチン")
+        
         url = reverse('admin:shift_shifttype_add')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
+        
+        # 基本フィールドが含まれていることを確認
+        self.assertContains(response, 'name="name"')
+        self.assertContains(response, 'name="is_work"')
+        self.assertContains(response, 'name="color"')
+        self.assertContains(response, 'name="min_workers"')
+        self.assertContains(response, 'name="max_workers"')
+        
+        # インラインが含まれていることを確認
+        self.assertContains(response, '役割別最低人数')
+        self.assertContains(response, 'role_min_workers-TOTAL_FORMS')
+        self.assertContains(response, 'role_min_workers-INITIAL_FORMS')
 
     def test_company_holiday_admin_add_view(self):
         """Test company holiday admin add view."""
