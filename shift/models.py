@@ -1,5 +1,7 @@
 from django.db import models
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from calendar import monthrange
+import random
 
 # Create your models here.
 
@@ -73,18 +75,14 @@ class LaborLawSettings(models.Model):
 
 
 class Shift(models.Model):
-    employee = models.ForeignKey(
-        Employee, verbose_name="従業員", on_delete=models.CASCADE
-    )
-    date = models.DateField("日付")
-    shift_type = models.ForeignKey(
-        ShiftType, verbose_name="シフト種別", on_delete=models.PROTECT
-    )
+    employee = models.ForeignKey(Employee, verbose_name='従業員', on_delete=models.CASCADE)
+    date = models.DateField('日付')
+    shift_type = models.ForeignKey(ShiftType, verbose_name='シフト種別', on_delete=models.PROTECT)
 
     class Meta:
-        unique_together = ("employee", "date")
-        verbose_name = "シフト"
-        verbose_name_plural = "シフト"
+        unique_together = ('employee', 'date')
+        verbose_name = 'シフト'
+        verbose_name_plural = 'シフト'
 
     def __str__(self):
         return f"{self.date} {self.employee.name} {self.shift_type.name}"
@@ -171,3 +169,146 @@ class Shift(models.Model):
             }
         
         return None
+
+    @classmethod
+    def create_auto_shifts(cls, year, month, creation_mode='fill_gaps'):
+        """自動シフト作成"""
+        settings = LaborLawSettings.get_current_settings()
+        employees = list(Employee.objects.all())
+        work_shift_types = list(ShiftType.objects.filter(is_work=True))
+        rest_shift_type = ShiftType.objects.filter(is_work=False).first()
+        
+        if not employees:
+            return {'success': False, 'error': '従業員が登録されていません。'}
+        if not work_shift_types:
+            return {'success': False, 'error': '勤務シフト種別が登録されていません。'}
+        if not rest_shift_type:
+            return {'success': False, 'error': '休みシフト種別が登録されていません。'}
+        
+        # 対象月の日数を取得
+        num_days = monthrange(year, month)[1]
+        target_dates = [date(year, month, d) for d in range(1, num_days + 1)]
+        
+        # 会社休日を取得
+        company_holidays = set(CompanyHoliday.objects.filter(
+            date__year=year, 
+            date__month=month
+        ).values_list('date', flat=True))
+        
+        # 既存シフトを取得
+        existing_shifts = {}
+        if creation_mode == 'fill_gaps':
+            existing_shifts = {
+                f"{s.employee_id}_{s.date.isoformat()}": s 
+                for s in cls.objects.filter(date__year=year, date__month=month)
+            }
+        
+        created_count = 0
+        updated_count = 0
+        
+        # 各日付について処理
+        for target_date in target_dates:
+            shift_key = f"{target_date.isoformat()}"
+            
+            # 会社休日の場合は全員休み
+            if target_date in company_holidays:
+                for employee in employees:
+                    employee_shift_key = f"{employee.id}_{shift_key}"
+                    if creation_mode == 'fill_gaps' and employee_shift_key in existing_shifts:
+                        continue
+                    
+                    shift, created = cls.objects.update_or_create(
+                        employee=employee,
+                        date=target_date,
+                        defaults={'shift_type': rest_shift_type}
+                    )
+                    
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+                continue
+            
+            # その他の日は最低労働者数を満たすように調整
+            available_employees = []
+            for employee in employees:
+                employee_shift_key = f"{employee.id}_{shift_key}"
+                if creation_mode == 'fill_gaps' and employee_shift_key in existing_shifts:
+                    continue
+                available_employees.append(employee)
+            
+            if not available_employees:
+                continue
+            
+            # 最低労働者数を満たすために必要な勤務者数
+            current_workers = cls.objects.filter(
+                date=target_date,
+                shift_type__is_work=True
+            ).exclude(employee__in=available_employees).count()
+            
+            needed_workers = max(0, settings.min_workers - current_workers)
+            
+            # 勤務者をランダムに選択
+            work_employees = random.sample(available_employees, min(needed_workers, len(available_employees)))
+            rest_employees = [emp for emp in available_employees if emp not in work_employees]
+            
+            # 勤務者にシフトを割り当て
+            for employee in work_employees:
+                # 連続勤務日数をチェック
+                temp_shift = cls(
+                    employee=employee,
+                    date=target_date,
+                    shift_type=work_shift_types[0]  # 仮の勤務シフト
+                )
+                consecutive_warning = temp_shift.check_consecutive_work_days()
+                
+                if consecutive_warning:
+                    # 連続勤務日数制限に引っかかる場合は休みに
+                    shift_type = rest_shift_type
+                else:
+                    shift_type = random.choice(work_shift_types)
+                
+                shift, created = cls.objects.update_or_create(
+                    employee=employee,
+                    date=target_date,
+                    defaults={'shift_type': shift_type}
+                )
+                
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+            
+            # 残りの従業員にランダムにシフトを割り当て
+            for employee in rest_employees:
+                # 連続勤務日数をチェック
+                temp_shift = cls(
+                    employee=employee,
+                    date=target_date,
+                    shift_type=work_shift_types[0]  # 仮の勤務シフト
+                )
+                consecutive_warning = temp_shift.check_consecutive_work_days()
+                
+                if consecutive_warning:
+                    shift_type = rest_shift_type
+                else:
+                    # ランダムに勤務または休みを選択
+                    shift_type = random.choice(work_shift_types + [rest_shift_type])
+                
+                shift, created = cls.objects.update_or_create(
+                    employee=employee,
+                    date=target_date,
+                    defaults={'shift_type': shift_type}
+                )
+                
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+        
+        return {
+            'success': True,
+            'created_count': created_count,
+            'updated_count': updated_count,
+            'message': f'{created_count}件のシフトを作成し、{updated_count}件を更新しました。'
+        }

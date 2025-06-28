@@ -1,16 +1,19 @@
 from django.contrib import admin
 from django.contrib import messages
 from .models import Employee, ShiftType, Shift, CompanyHoliday, LaborLawSettings
-from .forms import ShiftForm
+from .forms import ShiftForm, AutoShiftForm
 from django.urls import reverse
 from django.utils.html import format_html
 from django.http import HttpResponseRedirect
 from django.urls import path
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django import forms
 from datetime import date, timedelta
 import jpholiday
 from calendar import monthrange
+import re
+from django.http import HttpResponse
+from django.template.loader import render_to_string
 
 
 class BulkHolidayForm(forms.Form):
@@ -82,107 +85,72 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
         return custom_urls + urls
     
     def bulk_add_view(self, request):
+        """一括追加ビュー"""
         if request.method == 'POST':
             form = BulkHolidayForm(request.POST)
             if form.is_valid():
+                # フォーム処理（既存のコード）
                 holiday_type = form.cleaned_data['holiday_type']
                 start_date = form.cleaned_data['start_date']
                 end_date = form.cleaned_data['end_date']
                 weekday = form.cleaned_data['weekday']
                 holiday_name = form.cleaned_data['holiday_name']
                 
-                # バリデーション
-                if holiday_type in ['holidays', 'custom_weekday', 'date_range']:
-                    if not start_date or not end_date:
-                        messages.error(request, '開始日と終了日を指定してください。')
-                        context = {
-                            'title': '会社休日一括登録',
-                            'form': form,
-                            'opts': self.model._meta,
-                        }
-                        return render(request, 'admin/shift/companyholiday/bulk_add.html', context)
-                
-                if holiday_type == 'custom_weekday' and weekday is None:
-                    messages.error(request, '曜日を選択してください。')
-                    context = {
-                        'title': '会社休日一括登録',
-                        'form': form,
-                        'opts': self.model._meta,
-                    }
-                    return render(request, 'admin/shift/companyholiday/bulk_add.html', context)
-                
-                created_count = 0
-                skipped_count = 0
-                
-                if holiday_type == 'date_range' and start_date and end_date:
-                    # 期間指定
-                    current_date = start_date
-                    while current_date <= end_date:
-                        if not CompanyHoliday.objects.filter(date=current_date).exists():
-                            CompanyHoliday.objects.create(
-                                date=current_date,
-                                name=holiday_name or f'休日 ({current_date})',
-                                description=f'期間指定による一括登録'
-                            )
-                            created_count += 1
-                        else:
-                            skipped_count += 1
-                        current_date += timedelta(days=1)
-                
-                elif holiday_type == 'custom_weekday' and start_date and end_date and weekday is not None:
-                    # 指定曜日
-                    current_date = start_date
-                    while current_date <= end_date:
-                        if current_date.weekday() == int(weekday):
-                            if not CompanyHoliday.objects.filter(date=current_date).exists():
-                                CompanyHoliday.objects.create(
-                                    date=current_date,
-                                    name=holiday_name or f'定休日 ({current_date.strftime("%A")})',
-                                    description=f'指定曜日による一括登録'
-                                )
-                                created_count += 1
-                            else:
-                                skipped_count += 1
-                        current_date += timedelta(days=1)
-                
-                elif holiday_type == 'holidays':
-                    # 祝日
-                    if not start_date or not end_date:
-                        messages.error(request, '祝日を登録する場合は開始日と終了日を指定してください。')
-                        form = BulkHolidayForm(request.POST)
-                        context = {
-                            'title': '会社休日一括登録',
-                            'form': form,
-                            'opts': self.model._meta,
-                        }
-                        return render(request, 'admin/shift/companyholiday/bulk_add.html', context)
+                if holiday_type and start_date and end_date:
+                    created_count = 0
                     
-                    current_date = start_date
-                    while current_date <= end_date:
-                        if jpholiday.is_holiday(current_date):
-                            if not CompanyHoliday.objects.filter(date=current_date).exists():
-                                CompanyHoliday.objects.create(
-                                    date=current_date,
-                                    name=holiday_name or f'祝日 ({current_date})',
-                                    description=f'祝日による一括登録'
+                    if holiday_type == 'custom_weekday':
+                        if weekday is not None:
+                            current = start_date
+                            while current <= end_date:
+                                if current.weekday() == weekday:
+                                    holiday, created = CompanyHoliday.objects.get_or_create(
+                                        date=current,
+                                        defaults={'name': holiday_name or f'指定曜日休日', 'description': ''}
+                                    )
+                                    if created:
+                                        created_count += 1
+                                current += timedelta(days=1)
+                    
+                    elif holiday_type == 'holidays':
+                        current = start_date
+                        while current <= end_date:
+                            # 祝日かどうかをチェック
+                            if jpholiday.is_holiday(current):
+                                holiday, created = CompanyHoliday.objects.get_or_create(
+                                    date=current,
+                                    defaults={'name': holiday_name or f'祝日', 'description': ''}
                                 )
+                                if created:
+                                    created_count += 1
+                            current += timedelta(days=1)
+                    
+                    elif holiday_type == 'date_range':
+                        current = start_date
+                        while current <= end_date:
+                            holiday, created = CompanyHoliday.objects.get_or_create(
+                                date=current,
+                                defaults={'name': holiday_name or f'期間休日', 'description': ''}
+                            )
+                            if created:
                                 created_count += 1
-                            else:
-                                skipped_count += 1
-                        current_date += timedelta(days=1)
-                
-                messages.success(
-                    request,
-                    f'{created_count}件の会社休日を登録しました。{skipped_count}件は既に登録済みでした。'
-                )
-                return HttpResponseRedirect('../')
+                            current += timedelta(days=1)
+                    
+                    if created_count > 0:
+                        messages.success(request, f'{created_count}件の会社休日を追加しました。')
+                    else:
+                        messages.warning(request, '追加された会社休日はありません。')
+                    
+                    return redirect('admin:shift_companyholiday_changelist')
+                else:
+                    messages.error(request, '必要な情報を入力してください。')
         else:
             form = BulkHolidayForm()
         
         context = {
-            'title': '会社休日一括登録',
-            'form': form,
+            'title': '会社休日一括追加',
             'opts': self.model._meta,
+            'form': form,
         }
         return render(request, 'admin/shift/companyholiday/bulk_add.html', context)
 
@@ -196,21 +164,82 @@ class ShiftTypeAdmin(admin.ModelAdmin):
 
 @admin.register(Shift)
 class ShiftAdmin(admin.ModelAdmin):
+    list_display = ['employee', 'date', 'shift_type']
+    list_filter = ['date', 'shift_type', 'employee']
+    search_fields = ['employee__name', 'shift_type__name']
+    date_hierarchy = 'date'
     form = ShiftForm
-    list_display = ["employee", "date", "shift_type"]
-    list_filter = ["employee", "shift_type", "date"]
-    search_fields = ["employee__name", "shift_type__name"]
-    date_hierarchy = "date"
 
-    def save_model(self, request, obj, form, change):
-        # フォームの警告をチェック
-        warnings = form.get_warnings()
-        if warnings:
-            for field, messages_list in warnings.items():
-                for message in messages_list:
-                    messages.warning(request, f"警告: {message}")
+    def changelist_view(self, request, extra_context=None):
+        """一覧画面に自動シフト作成リンクを追加"""
+        extra_context = extra_context or {}
+        extra_context['auto_create_url'] = 'admin:shift_auto_create'
+        extra_context['title'] = 'シフト管理'
+        extra_context['subtitle'] = None  # サブタイトルを削除
+        
+        # モデルのverbose_nameを一時的に変更
+        original_verbose_name = self.model._meta.verbose_name
+        original_verbose_name_plural = self.model._meta.verbose_name_plural
+        self.model._meta.verbose_name = 'シフト管理'
+        self.model._meta.verbose_name_plural = 'シフト管理'
+        
+        response = super().changelist_view(request, extra_context)
+        
+        # 元に戻す
+        self.model._meta.verbose_name = original_verbose_name
+        self.model._meta.verbose_name_plural = original_verbose_name_plural
+        
+        return response
 
-        super().save_model(request, obj, form, change)
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('auto-create/', self.admin_site.admin_view(self.auto_create_view), name='shift_auto_create'),
+        ]
+        return custom_urls + urls
+
+    def auto_create_view(self, request):
+        """自動シフト作成ビュー"""
+        if request.method == 'POST':
+            form = AutoShiftForm(request.POST)
+            if form.is_valid():
+                year = form.cleaned_data['year']
+                month = form.cleaned_data['month']
+                creation_mode = form.cleaned_data['creation_mode']
+                
+                # 自動シフト作成を実行
+                result = Shift.create_auto_shifts(year, month, creation_mode)
+                
+                if result['success']:
+                    messages.success(request, result['message'])
+                    return redirect('admin:shift_shift_changelist')
+                else:
+                    messages.error(request, result['error'])
+        else:
+            form = AutoShiftForm()
+        
+        context = {
+            'title': '自動シフト作成',
+            'form': form,
+            'opts': self.model._meta,
+            'site_title': '自動シフト作成',
+            'site_header': '自動シフト作成',
+            'subtitle': None,  # サブタイトルを削除
+        }
+        
+        response = render(request, 'admin/shift/auto_create.html', context)
+        
+        # レスポンスの内容を直接修正
+        if hasattr(response, 'content'):
+            content = response.content.decode('utf-8')
+            # h1タグの内容を修正
+            content = re.sub(r'<h1[^>]*>.*?自動シフト作成.*?自動シフト作成.*?</h1>', '<h1>自動シフト作成</h1>', content, flags=re.DOTALL)
+            content = re.sub(r'<h1[^>]*>.*?自動シフト作成.*?</h1>', '<h1>自動シフト作成</h1>', content, flags=re.DOTALL)
+            # タイトルタグも修正
+            content = re.sub(r'<title>.*?自動シフト作成.*?自動シフト作成.*?</title>', '<title>自動シフト作成</title>', content, flags=re.DOTALL)
+            response.content = content.encode('utf-8')
+        
+        return response
 
 
 @admin.register(LaborLawSettings)
@@ -242,7 +271,10 @@ class LaborLawSettingsAdmin(admin.ModelAdmin):
         return super().changeform_view(request, object_id, form_url, extra_context)
 
 
-admin.site.register(Employee)
+@admin.register(Employee)
+class EmployeeAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
 
 # 管理画面の上部に「シフト表」リンクを追加
 admin.site.site_header = 'シフト管理'
