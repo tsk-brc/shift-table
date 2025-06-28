@@ -1,0 +1,128 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@2.1
+  docker: circleci/docker@2.4
+
+jobs:
+  test:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+          app-dir: ./
+      - run:
+          name: Install system dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+      - run:
+          name: Run tests
+          command: |
+            python manage.py test --settings=shift_table.settings_test
+      - run:
+          name: Run tests with coverage
+          command: |
+            pytest --cov=shift --cov=shift_table --cov-report=xml --cov-report=html
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: htmlcov
+          destination: coverage
+
+  lint:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+          app-dir: ./
+      - run:
+          name: Run linting
+          command: |
+            flake8 shift/ shift_table/ --max-line-length=120 --ignore=E501,W503
+            black --check shift/ shift_table/
+
+  security:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+          app-dir: ./
+      - run:
+          name: Install security tools
+          command: |
+            pip install bandit safety
+      - run:
+          name: Run security checks
+          command: |
+            bandit -r shift/ shift_table/ -f json -o bandit-report.json
+            safety check --json --output safety-report.json
+
+  e2e:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+          app-dir: ./
+      - run:
+          name: Install Chrome and ChromeDriver
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y wget unzip
+            wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+            sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+            sudo apt-get update
+            sudo apt-get install -y google-chrome-stable
+            wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip
+            sudo unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/
+            sudo chmod +x /usr/local/bin/chromedriver
+      - run:
+          name: Run E2E tests
+          command: |
+            python manage.py test shift.tests.test_e2e --settings=shift_table.settings_test
+
+  build:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build Docker image
+          command: |
+            docker build -t shift-table .
+      - run:
+          name: Test Docker image
+          command: |
+            docker run --rm shift-table python manage.py check
+
+workflows:
+  version: 2
+  test-and-deploy:
+    jobs:
+      - lint
+      - test:
+          requires:
+            - lint
+      - security:
+          requires:
+            - lint
+      - e2e:
+          requires:
+            - test
+      - build:
+          requires:
+            - test
+            - security
+            - e2e
+          filters:
+            branches:
+              only: main 
