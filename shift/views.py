@@ -3,7 +3,10 @@ from django.utils import timezone
 from calendar import monthrange
 from datetime import date, timedelta
 from .models import Employee, Shift, ShiftType, CompanyHoliday, LaborLawSettings
-# import jpholiday
+try:
+    import jpholiday
+except ImportError:
+    jpholiday = None
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -40,13 +43,13 @@ def shift_table(request):
             "Sat": "土",
             "Sun": "日",
         }[weekday]
-        # is_holiday = jpholiday.is_holiday(d)
+        is_holiday = jpholiday.is_holiday(d) if jpholiday else False
         is_saturday = d.weekday() == 5
         is_sunday = d.weekday() == 6
         is_company_holiday = d in company_holiday_dates
 
         # 色の決定
-        if is_sunday or is_company_holiday:
+        if is_holiday or is_sunday or is_company_holiday:
             color = "red"
         elif is_saturday:
             color = "blue"
@@ -56,7 +59,7 @@ def shift_table(request):
         day_info[d] = {
             "weekday": weekday_ja,
             "color": color,
-            "is_holiday": False,
+            "is_holiday": is_holiday,
             "is_company_holiday": is_company_holiday,
             "company_holiday_name": company_holiday_dates.get(d, ""),
         }
