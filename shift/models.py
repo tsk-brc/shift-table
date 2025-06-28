@@ -82,36 +82,44 @@ class Shift(models.Model):
         settings = LaborLawSettings.get_current_settings()
         max_days = settings.max_consecutive_work_days
         
-        # 指定日から前後7日間のシフトを取得
-        start_date = self.date - timedelta(days=7)
-        end_date = self.date + timedelta(days=7)
+        # 指定日から前後「最大連続勤務日数」分のシフトを取得
+        start_date = self.date - timedelta(days=max_days)
+        end_date = self.date + timedelta(days=max_days)
         
+        # 勤務日のみのシフトを取得（休みは除外）
         shifts = Shift.objects.filter(
             employee=self.employee,
             date__range=[start_date, end_date],
             shift_type__is_work=True
-        ).order_by('date')
+        ).exclude(id=self.id)  # 現在のシフトを除外（更新時）
         
-        # 連続勤務日数を計算
-        consecutive_days = 0
-        current_date = None
+        # 勤務日の日付リストを作成
+        work_dates = set(shifts.values_list('date', flat=True))
+        if self.shift_type.is_work:  # 現在のシフトが勤務日の場合のみ追加
+            work_dates.add(self.date)
         
-        for shift in shifts:
-            if current_date is None:
-                consecutive_days = 1
-                current_date = shift.date
-            elif (shift.date - current_date).days == 1:
-                consecutive_days += 1
-                current_date = shift.date
+        # 連続勤務日数を計算（勤務日のみ）
+        max_consecutive = 0
+        current_consecutive = 0
+        sorted_dates = sorted(work_dates)
+        
+        for i, work_date in enumerate(sorted_dates):
+            if i == 0:
+                current_consecutive = 1
             else:
-                consecutive_days = 1
-                current_date = shift.date
+                prev_date = sorted_dates[i-1]
+                if (work_date - prev_date).days == 1:
+                    current_consecutive += 1
+                else:
+                    current_consecutive = 1
+            
+            max_consecutive = max(max_consecutive, current_consecutive)
         
-        if consecutive_days > max_days:
+        if max_consecutive > max_days:
             return {
                 'warning': True,
-                'message': f'連続勤務日数が{consecutive_days}日となり、設定された上限({max_days}日)を超えています。',
-                'consecutive_days': consecutive_days,
+                'message': f'連続勤務日数が{max_consecutive}日となり、設定された上限({max_days}日)を超えています。',
+                'consecutive_days': max_consecutive,
                 'max_days': max_days
             }
         

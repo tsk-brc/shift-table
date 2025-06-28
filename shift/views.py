@@ -4,6 +4,10 @@ from calendar import monthrange
 from datetime import date, timedelta
 from .models import Employee, Shift, ShiftType, CompanyHoliday
 import jpholiday
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+import json
 
 # Create your views here.
 
@@ -63,6 +67,7 @@ def shift_table(request):
     shifts = Shift.objects.filter(date__year=year, date__month=month)
     shift_dict = {f"{s.employee_id}_{s.date.isoformat()}": s for s in shifts}
     shift_types = {st.id: st.name for st in ShiftType.objects.all()}
+    shift_types_list = list(ShiftType.objects.all())  # テンプレート用のリスト
 
     # 各従業員×日付のシフト情報を事前に整理
     employee_shifts = {}
@@ -80,6 +85,7 @@ def shift_table(request):
         'employees': employees,
         'shift_dict': shift_dict,
         'shift_types': shift_types,
+        'shift_types_list': shift_types_list,  # テンプレート用
         'employee_shifts': employee_shifts,
         'prev_year': prev_year,
         'prev_month': prev_month,
@@ -92,3 +98,78 @@ def shift_table(request):
         'months': range(1, 13),
     }
     return render(request, 'shift/shift_table.html', context)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_shift(request):
+    """シフト保存API"""
+    try:
+        data = json.loads(request.body)
+        employee_id = data.get('employee_id')
+        shift_date = data.get('date')
+        shift_type_id = data.get('shift_type_id')
+        shift_id = data.get('shift_id')
+        
+        # バリデーション
+        if not employee_id or not shift_date or not shift_type_id:
+            return JsonResponse({'success': False, 'error': '必須項目が不足しています'})
+        
+        # 日付の変換
+        try:
+            date_obj = date.fromisoformat(shift_date)
+        except ValueError:
+            return JsonResponse({'success': False, 'error': '無効な日付です'})
+        
+        # 従業員とシフト種別の存在確認
+        try:
+            employee = Employee.objects.get(id=employee_id)
+            shift_type = ShiftType.objects.get(id=shift_type_id)
+        except (Employee.DoesNotExist, ShiftType.DoesNotExist):
+            return JsonResponse({'success': False, 'error': '従業員またはシフト種別が見つかりません'})
+        
+        # シフトの保存または更新
+        if shift_id:
+            # 更新
+            try:
+                shift = Shift.objects.get(id=shift_id)
+                shift.shift_type = shift_type
+                shift.save()
+            except Shift.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'シフトが見つかりません'})
+        else:
+            # 新規作成
+            shift, created = Shift.objects.get_or_create(
+                employee=employee,
+                date=date_obj,
+                defaults={'shift_type': shift_type}
+            )
+            if not created:
+                return JsonResponse({'success': False, 'error': '既にシフトが登録されています'})
+        
+        # 連続勤務日数制限の警告チェック
+        warning = shift.check_consecutive_work_days()
+        if warning:
+            return JsonResponse({
+                'success': True, 
+                'warning': warning['message']
+            })
+        
+        return JsonResponse({'success': True})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': '無効なJSONデータです'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def delete_shift(request, shift_id):
+    """シフト削除API"""
+    try:
+        shift = Shift.objects.get(id=shift_id)
+        shift.delete()
+        return JsonResponse({'success': True})
+    except Shift.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'シフトが見つかりません'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
