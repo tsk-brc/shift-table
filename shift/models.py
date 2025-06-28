@@ -206,41 +206,50 @@ class Shift(models.Model):
                 f"{s.employee_id}_{s.date.isoformat()}": s 
                 for s in cls.objects.filter(date__year=year, date__month=month)
             }
+        elif creation_mode == 'overwrite':
+            # 既存のシフトを上書きして1から作成の場合、その月の既存シフトを全て削除
+            cls.objects.filter(date__year=year, date__month=month).delete()
         
+        # 各従業員の目標勤務日数を計算
+        total_work_days = num_days - len(company_holidays)
+        min_workers = settings.min_workers
+        total_needed = total_work_days * min_workers
+        base, extra = divmod(total_needed, len(employees))
+        target_work_days = {emp.id: base for emp in employees}
+        # 余りはランダムに配分
+        for emp_id in random.sample([emp.id for emp in employees], extra):
+            target_work_days[emp_id] += 1
+
         # 各従業員の勤務日数を追跡
         work_days_count = {emp.id: 0 for emp in employees}
-        
         # 既存のシフトから勤務日数をカウント
         for shift in cls.objects.filter(date__year=year, date__month=month):
             if shift.shift_type.is_work:
                 work_days_count[shift.employee.id] += 1
-        
+
         created_count = 0
         updated_count = 0
-        
+
         # 各日付について処理
         for target_date in target_dates:
             shift_key = f"{target_date.isoformat()}"
-            
             # 会社休日の場合は全員休み
             if target_date in company_holidays:
                 for employee in employees:
                     employee_shift_key = f"{employee.id}_{shift_key}"
                     if creation_mode == 'fill_gaps' and employee_shift_key in existing_shifts:
                         continue
-                    
                     shift, created = cls.objects.update_or_create(
                         employee=employee,
                         date=target_date,
                         defaults={'shift_type': rest_shift_type}
                     )
-                    
                     if created:
                         created_count += 1
                     else:
                         updated_count += 1
                 continue
-            
+
             # その他の日は最低労働者数を満たすように調整
             available_employees = []
             for employee in employees:
@@ -248,73 +257,63 @@ class Shift(models.Model):
                 if creation_mode == 'fill_gaps' and employee_shift_key in existing_shifts:
                     continue
                 available_employees.append(employee)
-            
             if not available_employees:
                 continue
-            
-            # 最低労働者数を満たすために必要な勤務者数
+
+            # その日の勤務者を目標勤務日数未達の人から優先して選ぶ
+            # まず勤務日数が目標未満の人を抽出
+            candidates = [emp for emp in available_employees if work_days_count[emp.id] < target_work_days[emp.id]]
+            # 必要人数だけ選ぶ（足りなければ全員から）
             current_workers = cls.objects.filter(
                 date=target_date,
                 shift_type__is_work=True
             ).exclude(employee__in=available_employees).count()
-            
             needed_workers = max(0, settings.min_workers - current_workers)
+            if len(candidates) < needed_workers:
+                # 未達者が足りなければ全員から
+                candidates = available_employees
             
-            # 勤務日数が少ない従業員を優先的に選択するためのソート
-            available_employees.sort(key=lambda emp: work_days_count[emp.id])
+            # 連続勤務日数制限を厳密にチェック
+            workable_candidates = []
+            rest_only_candidates = []
             
-            # 最低労働者数を満たすために必要な従業員を選択
-            # 連続勤務日数制限を考慮して、勤務可能な従業員を優先的に選択
-            workable_employees = []
-            rest_only_employees = []
-            
-            for employee in available_employees:
-                # 連続勤務日数をチェック
+            for emp in candidates:
                 temp_shift = cls(
-                    employee=employee,
+                    employee=emp,
                     date=target_date,
-                    shift_type=work_shift_types[0]  # 仮の勤務シフト
+                    shift_type=work_shift_types[0]
                 )
                 consecutive_warning = temp_shift.check_consecutive_work_days()
-                
                 if consecutive_warning:
-                    rest_only_employees.append(employee)
+                    rest_only_candidates.append(emp)
                 else:
-                    workable_employees.append(employee)
+                    workable_candidates.append(emp)
             
-            # 勤務日数が少ない順にソート
-            workable_employees.sort(key=lambda emp: work_days_count[emp.id])
-            rest_only_employees.sort(key=lambda emp: work_days_count[emp.id])
+            # 勤務可能な人から優先的に選択（勤務日数が少ない順）
+            workable_candidates.sort(key=lambda emp: work_days_count[emp.id])
+            work_employees = workable_candidates[:needed_workers]
             
-            # 最低労働者数を満たすために必要な従業員を選択
-            work_employees = []
-            if needed_workers > 0:
-                # 勤務可能な従業員から優先的に選択（勤務日数が少ない順）
-                work_employees = workable_employees[:min(needed_workers, len(workable_employees))]
-                
-                # 勤務可能な従業員が不足する場合、連続勤務日数制限を無視して追加
-                if len(work_employees) < needed_workers:
-                    remaining_needed = needed_workers - len(work_employees)
-                    additional_workers = rest_only_employees[:min(remaining_needed, len(rest_only_employees))]
-                    work_employees.extend(additional_workers)
+            # 勤務可能な人が不足する場合、連続勤務日数制限を無視して追加
+            if len(work_employees) < needed_workers:
+                remaining_needed = needed_workers - len(work_employees)
+                rest_only_candidates.sort(key=lambda emp: work_days_count[emp.id])
+                additional_workers = rest_only_candidates[:min(remaining_needed, len(rest_only_candidates))]
+                work_employees.extend(additional_workers)
             
-            # 残りの従業員（勤務日数が少ない順）
             rest_employees = [emp for emp in available_employees if emp not in work_employees]
-            rest_employees.sort(key=lambda emp: work_days_count[emp.id])
-            
+
             # 勤務者にシフトを割り当て
             for employee in work_employees:
-                # 連続勤務日数をチェック
                 temp_shift = cls(
                     employee=employee,
                     date=target_date,
-                    shift_type=work_shift_types[0]  # 仮の勤務シフト
+                    shift_type=work_shift_types[0]
                 )
                 consecutive_warning = temp_shift.check_consecutive_work_days()
                 
+                # 連続勤務日数制限に引っかかる場合は休みにする
                 if consecutive_warning:
-                    # 連続勤務日数制限に引っかかる場合でも、最低労働者数を満たすために勤務
-                    shift_type = random.choice(work_shift_types)
+                    shift_type = rest_shift_type
                 else:
                     shift_type = random.choice(work_shift_types)
                 
@@ -324,49 +323,22 @@ class Shift(models.Model):
                     defaults={'shift_type': shift_type}
                 )
                 
-                # 勤務日数を更新
-                work_days_count[employee.id] += 1
+                # 勤務日数を更新（実際に勤務になった場合のみ）
+                if shift.shift_type.is_work:
+                    work_days_count[employee.id] += 1
                 
                 if created:
                     created_count += 1
                 else:
                     updated_count += 1
-            
-            # 残りの従業員にシフトを割り当て（勤務日数を均等にするため）
+
+            # 残りの従業員に休みを割り当て
             for employee in rest_employees:
-                # 連続勤務日数をチェック
-                temp_shift = cls(
-                    employee=employee,
-                    date=target_date,
-                    shift_type=work_shift_types[0]  # 仮の勤務シフト
-                )
-                consecutive_warning = temp_shift.check_consecutive_work_days()
-                
-                if consecutive_warning:
-                    shift_type = rest_shift_type
-                else:
-                    # 勤務日数を均等にするため、勤務日数が少ない従業員を優先的に勤務に割り当て
-                    # 現在の月の平均勤務日数を計算
-                    total_work_days = sum(work_days_count.values())
-                    avg_work_days = total_work_days / len(employees) if employees else 0
-                    
-                    # この従業員の勤務日数が平均より少ない場合は勤務を優先
-                    if work_days_count[employee.id] < avg_work_days:
-                        shift_type = random.choice(work_shift_types)
-                    else:
-                        # ランダムに勤務または休みを選択（勤務の確率を下げる）
-                        shift_type = random.choice(work_shift_types + [rest_shift_type] * 2)
-                
                 shift, created = cls.objects.update_or_create(
                     employee=employee,
                     date=target_date,
-                    defaults={'shift_type': shift_type}
+                    defaults={'shift_type': rest_shift_type}
                 )
-                
-                # 勤務日数を更新
-                if shift.shift_type.is_work:
-                    work_days_count[employee.id] += 1
-                
                 if created:
                     created_count += 1
                 else:
