@@ -90,6 +90,18 @@ def shift_table(request):
             key = f"{emp.id}_{d.isoformat()}"
             employee_shifts[emp.id][d] = shift_dict.get(key)
 
+    # 各従業員ごとの勤務日数・休み日数を計算
+    work_shift_type_ids = set(ShiftType.objects.filter(is_work=True).values_list('id', flat=True))
+    rest_shift_type_ids = set(ShiftType.objects.filter(is_work=False).values_list('id', flat=True))
+    employee_work_days = {}
+    employee_rest_days = {}
+    for emp in employees:
+        emp_shifts = [shift_dict.get(f"{emp.id}_{d.isoformat()}") for d in days]
+        work_days = sum(1 for s in emp_shifts if s and s.shift_type_id in work_shift_type_ids)
+        rest_days = sum(1 for s in emp_shifts if s and s.shift_type_id in rest_shift_type_ids)
+        employee_work_days[emp.id] = work_days
+        employee_rest_days[emp.id] = rest_days
+
     context = {
         "year": year,
         "month": month,
@@ -109,6 +121,8 @@ def shift_table(request):
         "min_year": MIN_YEAR,
         "max_year": MAX_YEAR,
         "months": range(1, 13),
+        "employee_work_days": employee_work_days,
+        "employee_rest_days": employee_rest_days,
     }
     return render(request, "shift/shift_table.html", context)
 
