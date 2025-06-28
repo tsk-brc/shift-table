@@ -2,6 +2,8 @@
 End-to-end tests using Selenium.
 """
 
+import os
+import django
 import pytest
 from django.test import LiveServerTestCase
 from django.contrib.auth.models import User
@@ -12,12 +14,17 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
+from datetime import date
+
+# Django設定を確実に読み込む
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
+django.setup()
+
 from ..factories import (
     UserFactory, EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory,
     RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory
 )
 from ..models import ShiftType
-from datetime import date
 
 
 @pytest.mark.skip(reason="E2E tests require Chrome browser which is not available in Docker")

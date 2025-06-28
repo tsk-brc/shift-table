@@ -2,10 +2,18 @@
 Tests for models.
 """
 
+import os
+import django
 import pytest
+from datetime import date, timedelta
 from django.test import TestCase
 from django.core.exceptions import ValidationError
-from datetime import date, timedelta
+from django.db import IntegrityError
+
+# Django設定を確実に読み込む
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
+django.setup()
+
 from ..models import Employee, ShiftType, CompanyHoliday, LaborLawSettings, Shift
 from ..factories import (
     EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory, 

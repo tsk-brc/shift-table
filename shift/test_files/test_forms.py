@@ -2,6 +2,8 @@
 Tests for forms.
 """
 
+import os
+import django
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from datetime import date
@@ -11,6 +13,10 @@ from ..factories import (
     RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory
 )
 from ..models import ShiftType, LaborLawSettings
+
+# Django設定を確実に読み込む
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
+django.setup()
 
 
 class CompanyHolidayBulkAddFormTest(TestCase):

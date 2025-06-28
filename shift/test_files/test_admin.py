@@ -2,6 +2,8 @@
 Tests for admin functionality.
 """
 
+import os
+import django
 import json
 from datetime import date, timedelta
 from django.test import TestCase, Client
@@ -18,6 +20,10 @@ from ..factories import (
     RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory,
     ShiftFactory, UserFactory
 )
+
+# Django設定を確実に読み込む
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
+django.setup()
 
 
 class AdminModelTest(TestCase):

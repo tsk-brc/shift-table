@@ -2,11 +2,18 @@
 Tests for views.
 """
 
+import os
+import django
 import json
 from datetime import date, timedelta
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
+
+# Django設定を確実に読み込む
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
+django.setup()
+
 from ..models import Employee, ShiftType, CompanyHoliday, LaborLawSettings, Shift
 from ..factories import (
     EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory, 
