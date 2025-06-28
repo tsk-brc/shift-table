@@ -441,4 +441,93 @@ class ShiftModelTest(TestCase):
         shift_type = ShiftTypeFactory(name=f"出勤_{self._testMethodName}")
         test_date = date(2025, 1, 1)
         shift = ShiftFactory(employee=employee, shift_type=shift_type, date=test_date)
-        self.assertEqual(shift.date, test_date) 
+        self.assertEqual(shift.date, test_date)
+
+    @pytest.mark.slow
+    def test_create_auto_shifts_min_workers_compliance(self):
+        """Test that auto shift creation respects minimum workers requirement."""
+        settings = LaborLawSettingsFactory(min_workers=2, max_consecutive_work_days=6)
+        employees = [EmployeeFactory() for _ in range(3)]
+        work_shift_type = WorkShiftTypeFactory()
+        rest_shift_type = RestShiftTypeFactory()
+        
+        # Create auto shifts
+        result = Shift.create_auto_shifts(2025, 1, 'overwrite')
+        
+        self.assertTrue(result['success'])
+        self.assertGreater(result['created_count'], 0)
+        
+        # Check that each day has at least min_workers working
+        for day in range(1, 32):
+            try:
+                target_date = date(2025, 1, day)
+                work_shifts = Shift.objects.filter(
+                    date=target_date,
+                    shift_type__is_work=True
+                )
+                work_count = work_shifts.count()
+                
+                # Skip company holidays
+                company_holiday = CompanyHoliday.objects.filter(date=target_date).first()
+                if company_holiday:
+                    continue
+                
+                # Check minimum workers requirement
+                self.assertGreaterEqual(
+                    work_count, 
+                    settings.min_workers,
+                    f"Day {day} has only {work_count} workers, but minimum is {settings.min_workers}"
+                )
+            except ValueError:
+                # Skip invalid dates (e.g., February 30th)
+                continue
+
+    @pytest.mark.slow
+    def test_create_auto_shifts_consecutive_work_days_override(self):
+        """Test that auto shift creation overrides consecutive work days when needed for minimum workers."""
+        settings = LaborLawSettingsFactory(min_workers=2, max_consecutive_work_days=3)
+        employees = [EmployeeFactory() for _ in range(2)]
+        work_shift_type = WorkShiftTypeFactory()
+        rest_shift_type = RestShiftTypeFactory()
+        
+        # Create shifts for previous days to force consecutive work days limit
+        for day in range(28, 32):  # December 28-31
+            try:
+                prev_date = date(2024, 12, day)
+                for employee in employees:
+                    ShiftFactory(
+                        employee=employee,
+                        shift_type=work_shift_type,
+                        date=prev_date
+                    )
+            except ValueError:
+                continue
+        
+        # Create auto shifts for January
+        result = Shift.create_auto_shifts(2025, 1, 'overwrite')
+        
+        self.assertTrue(result['success'])
+        
+        # Check that minimum workers requirement is still met even with consecutive work days limit
+        for day in range(1, 5):  # Check first few days
+            try:
+                target_date = date(2025, 1, day)
+                work_shifts = Shift.objects.filter(
+                    date=target_date,
+                    shift_type__is_work=True
+                )
+                work_count = work_shifts.count()
+                
+                # Skip company holidays
+                company_holiday = CompanyHoliday.objects.filter(date=target_date).first()
+                if company_holiday:
+                    continue
+                
+                # Should still meet minimum workers requirement
+                self.assertGreaterEqual(
+                    work_count, 
+                    settings.min_workers,
+                    f"Day {day} has only {work_count} workers, but minimum is {settings.min_workers}"
+                )
+            except ValueError:
+                continue 
