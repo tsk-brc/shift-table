@@ -1,5 +1,5 @@
 from django import forms
-from .models import Shift, ShiftType, Employee
+from .models import Shift, ShiftType, Employee, CompanyHoliday
 from datetime import date
 
 COLOR_CHOICES = [
@@ -127,3 +127,59 @@ class ShiftTypeForm(forms.ModelForm):
     class Meta:
         model = ShiftType
         fields = ['name', 'is_work', 'color']
+
+class CompanyHolidayBulkAddForm(forms.Form):
+    HOLIDAY_TYPE_CHOICES = [
+        ('holidays', '祝日'),
+        ('custom_weekday', '指定曜日'),
+        ('date_range', '期間'),
+        ('single', '単日'),
+        ('monthly', '毎月指定日'),
+        ('weekly', '毎週指定曜日'),
+        ('range', '日付範囲'),
+    ]
+    holiday_type = forms.ChoiceField(
+        label='休日タイプ',
+        choices=HOLIDAY_TYPE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    start_date = forms.DateField(
+        label='開始日',
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        required=False
+    )
+    end_date = forms.DateField(
+        label='終了日',
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        required=False
+    )
+    weekday = forms.ChoiceField(
+        label='曜日',
+        choices=[
+            (0, '月曜日'), (1, '火曜日'), (2, '水曜日'), (3, '木曜日'), (4, '金曜日'), (5, '土曜日'), (6, '日曜日'),
+        ],
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    day = forms.CharField(
+        label='日',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    date = forms.DateField(
+        label='日付',
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+    )
+    name = forms.CharField(
+        label='休日名',
+        max_length=100,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        required=False
+    )
+    description = forms.CharField(
+        label='説明',
+        max_length=200,
+        widget=forms.Textarea(attrs={'class': 'form-control'}),
+        required=False
+    )
