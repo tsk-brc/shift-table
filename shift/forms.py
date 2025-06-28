@@ -2,6 +2,36 @@ from django import forms
 from .models import Shift, ShiftType, Employee
 from datetime import date
 
+COLOR_CHOICES = [
+    ("#dc3545", "赤"),
+    ("#007bff", "青"),
+    ("#28a745", "緑"),
+    ("#ffc107", "黄"),
+    ("#fd7e14", "オレンジ"),
+    ("#6f42c1", "紫"),
+    ("#e83e8c", "ピンク"),
+    ("#17a2b8", "水色"),
+    ("#6c757d", "グレー"),
+    ("#343a40", "黒"),
+]
+
+class ColorSelectWidget(forms.Widget):
+    template_name = 'admin/widgets/color_select.html'
+
+    def __init__(self, attrs=None):
+        super().__init__(attrs)
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        context['widget']['value'] = value
+        context['widget']['name'] = name
+        context['widget']['color_choices'] = COLOR_CHOICES
+        context['widget']['preset_codes'] = [c[0] for c in COLOR_CHOICES]
+        return context
+
+    class Media:
+        css = {'all': ('admin/css/forms.css',)}
+        js = ()
 
 class ShiftForm(forms.ModelForm):
     class Meta:
@@ -87,3 +117,13 @@ class AutoShiftForm(forms.Form):
                 'year': today.year,
                 'month': today.month,
             }
+
+class ShiftTypeForm(forms.ModelForm):
+    color = forms.CharField(
+        label='色',
+        widget=ColorSelectWidget,
+        required=True
+    )
+    class Meta:
+        model = ShiftType
+        fields = ['name', 'is_work', 'color']

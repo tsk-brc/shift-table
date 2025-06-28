@@ -71,7 +71,10 @@
                 <td>{{ emp.name }}</td>
                 {% for d in days %}
                     {% with shift=employee_shifts|get_item:emp.id|get_item:d %}
-                        <td class="shift-cell" onclick="editShift('{{ emp.id }}', '{{ d|date:'Y-m-d' }}', '{{ emp.name }}', '{{ d.day }}', '{{ shift.shift_type.id|default:"" }}', '{{ shift.id|default:"" }}')">
+                        <td class="shift-cell" onclick="editShift('{{ emp.id }}', '{{ d|date:'Y-m-d' }}', '{{ emp.name }}', '{{ d.day }}', '{{ shift.shift_type.id|default:"" }}', '{{ shift.id|default:"" }}')" 
+                            {% if shift and shift.shift_type.color %}
+                                style="background-color: {{ shift.shift_type.color }}; color: white; font-weight: bold;"
+                            {% endif %}>
                             {% if shift %}{{ shift.shift_type.name }}{% endif %}
                         </td>
                     {% endwith %}

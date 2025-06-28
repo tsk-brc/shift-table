@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib import messages
 from .models import Employee, ShiftType, Shift, CompanyHoliday, LaborLawSettings
-from .forms import ShiftForm, AutoShiftForm
+from .forms import ShiftForm, AutoShiftForm, ShiftTypeForm
 from django.urls import reverse
 from django.utils.html import format_html
 from django.http import HttpResponseRedirect
@@ -157,9 +157,20 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
 
 @admin.register(ShiftType)
 class ShiftTypeAdmin(admin.ModelAdmin):
-    list_display = ["name", "is_work"]
+    list_display = ["name", "is_work", "color_display"]
     list_filter = ["is_work"]
     search_fields = ["name"]
+    fields = ["name", "is_work", "color"]
+    form = ShiftTypeForm
+    
+    def color_display(self, obj):
+        if obj.color:
+            return format_html(
+                '<span style="background-color: {}; color: white; padding: 2px 8px; border-radius: 3px;">{}</span>',
+                obj.color, obj.color
+            )
+        return "-"
+    color_display.short_description = "色"
 
 
 @admin.register(Shift)
