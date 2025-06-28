@@ -124,15 +124,78 @@ class AutoShiftForm(forms.Form):
                 'month': today.month,
             }
 
-class ShiftTypeForm(forms.ModelForm):
-    color = forms.CharField(
-        label='色',
-        widget=ColorSelectWidget,
-        required=True
-    )
-    class Meta:
-        model = ShiftType
-        fields = ['name', 'is_work', 'min_workers', 'max_workers', 'color']
+# class ShiftTypeForm(forms.ModelForm):
+#     color = forms.CharField(
+#         label='色',
+#         widget=ColorSelectWidget,
+#         required=True
+#     )
+#     
+#     class Meta:
+#         model = ShiftType
+#         fields = ['name', 'is_work', 'color', 'min_workers', 'max_workers']  # role_min_workersを除外
+#     
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         # 役割一覧を取得
+#         try:
+#             from .models import Role
+#             roles = Role.objects.all().order_by('name')
+#             if roles.exists():
+#                 # 役割ごとのフィールドを動的に追加
+#                 for role in roles:
+#                     field_name = f'role_min_workers_{role.id}'
+#                     self.fields[field_name] = forms.IntegerField(
+#                         label=f'{role.name}の最低人数',
+#                         min_value=0,
+#                         required=False,
+#                         initial=0,
+#                         help_text=f'{role.name}役割の最低必要人数を入力してください'
+#                     )
+#                 
+#                 # 既存データがある場合は初期値を設定
+#                 if self.instance and self.instance.pk:
+#                     for role in roles:
+#                         field_name = f'role_min_workers_{role.id}'
+#                         if field_name in self.fields:
+#                             min_worker_obj = self.instance.role_min_workers.filter(role=role).first()
+#                             self.fields[field_name].initial = min_worker_obj.min_workers if min_worker_obj else 0
+#         except:
+#             # マイグレーション前などでRoleモデルが存在しない場合
+#             pass
+#     
+#     def clean(self):
+#         """個別フィールドをJSONに変換"""
+#         cleaned_data = super().clean()
+#         
+#         # 役割別最低人数をJSONに変換
+#         role_min_workers = {}
+#         try:
+#             from .models import Role
+#             roles = Role.objects.all()
+#             for role in roles:
+#                 field_name = f'role_min_workers_{role.id}'
+#                 if field_name in cleaned_data:
+#                     value = cleaned_data.get(field_name)
+#                     if value and value > 0:
+#                         role_min_workers[role.name] = value
+#         except:
+#             pass
+#         
+#         cleaned_data['role_min_workers'] = role_min_workers
+#         return cleaned_data
+#     
+#     def save(self, commit=True):
+#         """フォームデータを保存"""
+#         instance = super().save(commit=False)
+#         
+#         # 役割別最低人数を設定
+#         if 'role_min_workers' in self.cleaned_data:
+#             instance.role_min_workers = self.cleaned_data['role_min_workers']
+#         
+#         if commit:
+#             instance.save()
+#         return instance
 
 class CompanyHolidayBulkAddForm(forms.Form):
     HOLIDAY_TYPE_CHOICES = [

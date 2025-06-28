@@ -7,12 +7,13 @@ import django
 from django.test import TestCase
 from django.core.exceptions import ValidationError
 from datetime import date
-from ..forms import CompanyHolidayBulkAddForm, AutoShiftForm
+from ..forms import CompanyHolidayBulkAddForm, AutoShiftForm, ShiftTypeForm
 from ..factories import (
     EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory, 
-    RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory
+    RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory,
+    RoleFactory, ShiftTypeRoleMinWorkerFactory
 )
-from ..models import ShiftType, LaborLawSettings
+from ..models import ShiftType, LaborLawSettings, Role
 
 # Django設定を確実に読み込む
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
@@ -275,4 +276,59 @@ class AutoShiftFormTest(TestCase):
         form = AutoShiftForm()
         today = date.today()
         self.assertEqual(form.initial['year'], today.year)
-        self.assertEqual(form.initial['month'], today.month) 
+        self.assertEqual(form.initial['month'], today.month)
+
+
+class ShiftTypeFormTest(TestCase):
+    """Shift type form tests."""
+
+    def test_shift_type_form_with_roles(self):
+        """Test shift type form when roles exist."""
+        # 役割を作成
+        role1 = RoleFactory(name="ホール")
+        role2 = RoleFactory(name="キッチン")
+        
+        form = ShiftTypeForm()
+        self.assertIn(f'role_min_workers_{role1.id}', form.fields)
+        self.assertIn(f'role_min_workers_{role2.id}', form.fields)
+        self.assertEqual(form.fields[f'role_min_workers_{role1.id}'].label, 'ホールの最低人数')
+        self.assertEqual(form.fields[f'role_min_workers_{role2.id}'].label, 'キッチンの最低人数')
+
+    def test_shift_type_form_without_roles(self):
+        """Test shift type form when no roles exist."""
+        # 役割を全て削除
+        Role.objects.all().delete()
+        
+        form = ShiftTypeForm()
+        # 役割関連のフィールドが存在しないことを確認
+        role_fields = [field for field in form.fields.keys() if field.startswith('role_min_workers_')]
+        self.assertEqual(len(role_fields), 0)
+
+    def test_shift_type_form_role_min_workers_validation(self):
+        """Test role min workers validation."""
+        role = RoleFactory(name="ホール")
+        
+        # 有効なデータ
+        form_data = {
+            'name': 'テストシフト',
+            'is_work': True,
+            'min_workers': 1,
+            'max_workers': 5,
+            'color': '#FF0000',
+            f'role_min_workers_{role.id}': 2
+        }
+        form = ShiftTypeForm(data=form_data)
+        self.assertTrue(form.is_valid())
+        
+        # 保存してJSON変換を確認
+        if form.is_valid():
+            cleaned_data = form.clean()
+            self.assertEqual(cleaned_data['role_min_workers'], {'ホール': 2})
+
+    def test_shift_type_form_existing_data(self):
+        """Test form with existing shift type data."""
+        role = RoleFactory(name="ホール")
+        shift_type = ShiftTypeFactory(name="テストシフト")
+        ShiftTypeRoleMinWorkerFactory(shift_type=shift_type, role=role, min_workers=3)
+        form = ShiftTypeForm(instance=shift_type)
+        self.assertEqual(form.fields[f'role_min_workers_{role.id}'].initial, 3) 

@@ -18,7 +18,7 @@ from ..admin import (
 from ..factories import (
     EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory, 
     RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory,
-    ShiftFactory, UserFactory
+    ShiftFactory, UserFactory, RoleFactory
 )
 
 # Django設定を確実に読み込む
@@ -121,9 +121,34 @@ class AdminViewTest(TestCase):
 
     def test_shift_type_admin_add_view(self):
         """Test shift type admin add view."""
+        # 役割を作成
+        role1 = RoleFactory(name="ホール")
+        role2 = RoleFactory(name="キッチン")
+        
+        # 管理者ユーザーでログイン
+        self.client.force_login(self.user)
+        
+        # 新規追加画面にアクセス
         url = reverse('admin:shift_shifttype_add')
         response = self.client.get(url)
+        
+        # 正常に表示されることを確認
         self.assertEqual(response.status_code, 200)
+        
+        # 基本フィールドが含まれていることを確認
+        self.assertContains(response, 'name="name"')
+        self.assertContains(response, 'name="is_work"')
+        self.assertContains(response, 'name="color"')
+        self.assertContains(response, 'name="min_workers"')
+        self.assertContains(response, 'name="max_workers"')
+        
+        # 動的フィールドが含まれていることを確認
+        self.assertContains(response, f'name="role_min_workers_{role1.id}"')
+        self.assertContains(response, f'name="role_min_workers_{role2.id}"')
+        
+        # 役割名がラベルとして表示されていることを確認
+        self.assertContains(response, 'ホールの最低人数')
+        self.assertContains(response, 'キッチンの最低人数')
 
     def test_company_holiday_admin_add_view(self):
         """Test company holiday admin add view."""

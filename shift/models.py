@@ -7,8 +7,22 @@ from django.core.exceptions import ValidationError
 # Create your models here.
 
 
+class Role(models.Model):
+    """従業員の役割（ホール、キッチンなど）"""
+    name = models.CharField("役割名", max_length=50, unique=True)
+    description = models.TextField("説明", blank=True)
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        verbose_name = "役割"
+        verbose_name_plural = "役割"
+
+
 class Employee(models.Model):
     name = models.CharField("氏名", max_length=100)
+    roles = models.ManyToManyField(Role, verbose_name="役割", blank=True)
 
     def __str__(self):
         return self.name
@@ -224,11 +238,12 @@ class Shift(models.Model):
 
     @classmethod
     def create_auto_shifts(cls, year, month, creation_mode='fill_gaps'):
-        """自動シフト作成（シフト種別ごとのmin/max人数＋全体min_workersを正確に考慮）"""
+        """自動シフト作成（シフト種別ごとのmin/max人数＋全体min_workers＋役割別最低人数を考慮）"""
         settings = LaborLawSettings.get_current_settings()
         employees = list(Employee.objects.all())
         work_shift_types = list(ShiftType.objects.filter(is_work=True))
         rest_shift_type = ShiftType.objects.filter(is_work=False).first()
+        roles = list(Role.objects.all())
         
         if not employees:
             return {'success': False, 'error': '従業員が登録されていません。'}
@@ -287,6 +302,7 @@ class Shift(models.Model):
                 continue
             assigned_employees = set()
             assigned_work_employees = set()
+            
             # 1. 各シフト種別のmin_workersをまず割り当て
             for shift_type in work_shift_types:
                 already_assigned = cls.objects.filter(date=target_date, shift_type=shift_type).count()
@@ -309,8 +325,61 @@ class Shift(models.Model):
                         created_count += 1
                     else:
                         updated_count += 1
-            # 2. 全体のmin_workersを満たすまでmax_workersの範囲内で追加割り当て
-            # 現在の勤務者数（is_work=Trueの割り当て）
+            
+            # 2. 役割別最低人数を満たすように追加割り当て
+            for shift_type in work_shift_types:
+                if not shift_type.role_min_workers.exists():
+                    continue
+                
+                # そのシフト種別に既に割り当てられている従業員
+                assigned_to_shift = cls.objects.filter(date=target_date, shift_type=shift_type)
+                assigned_employee_ids = set(assigned_to_shift.values_list('employee_id', flat=True))
+                
+                # 各役割の現在の人数をカウント
+                role_counts = {}
+                for role in roles:
+                    role_counts[role.name] = 0
+                
+                for emp_id in assigned_employee_ids:
+                    employee = Employee.objects.get(id=emp_id)
+                    for role in employee.roles.all():
+                        role_counts[role.name] = role_counts.get(role.name, 0) + 1
+                
+                # 役割別最低人数を満たすために必要な追加人数
+                candidates = [e for e in available_employees if e not in assigned_employees]
+                candidates_sorted = sorted(candidates, key=lambda e: work_days_count[e.id])
+                
+                for role_min_worker in shift_type.role_min_workers.all():
+                    role_name = role_min_worker.role.name
+                    min_count = role_min_worker.min_workers
+                    current_count = role_counts.get(role_name, 0)
+                    needed = max(0, min_count - current_count)
+                    
+                    if needed > 0:
+                        # その役割を持つ従業員を優先的に選択
+                        role_employees = [e for e in candidates_sorted if e.roles.filter(name=role_name).exists()]
+                        other_employees = [e for e in candidates_sorted if e not in role_employees]
+                        
+                        # 役割を持つ従業員を優先
+                        priority_candidates = role_employees + other_employees
+                        
+                        for employee in priority_candidates[:needed]:
+                            if employee not in assigned_employees:
+                                shift, created = cls.objects.update_or_create(
+                                    employee=employee,
+                                    date=target_date,
+                                    defaults={'shift_type': shift_type}
+                                )
+                                assigned_employees.add(employee)
+                                assigned_work_employees.add(employee)
+                                if shift_type.is_work:
+                                    work_days_count[employee.id] += 1
+                                if created:
+                                    created_count += 1
+                                else:
+                                    updated_count += 1
+            
+            # 3. 全体のmin_workersを満たすまでmax_workersの範囲内で追加割り当て
             current_workers = len(assigned_work_employees)
             needed_workers = max(0, settings.min_workers - current_workers)
             if needed_workers > 0:
@@ -342,7 +411,8 @@ class Shift(models.Model):
                             break
                     if needed_workers <= 0:
                         break
-            # 3. 残りは休み
+            
+            # 4. 残りは休み
             for employee in set(available_employees) - assigned_employees:
                 shift, created = cls.objects.update_or_create(
                     employee=employee,
@@ -360,3 +430,17 @@ class Shift(models.Model):
             "message": f"{created_count}件のシフトを作成し、{updated_count}件を更新しました。",
             "work_days_distribution": work_days_count,
         }
+
+
+class ShiftTypeRoleMinWorker(models.Model):
+    shift_type = models.ForeignKey('ShiftType', on_delete=models.CASCADE, related_name='role_min_workers')
+    role = models.ForeignKey('Role', on_delete=models.CASCADE)
+    min_workers = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('shift_type', 'role')
+        verbose_name = 'シフト種別役割別最低人数'
+        verbose_name_plural = 'シフト種別役割別最低人数'
+
+    def __str__(self):
+        return f"{self.shift_type} - {self.role}: {self.min_workers}"

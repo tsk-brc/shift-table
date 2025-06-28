@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib import messages
-from .models import Employee, ShiftType, Shift, CompanyHoliday, LaborLawSettings
-from .forms import ShiftForm, AutoShiftForm, ShiftTypeForm, CompanyHolidayBulkAddForm
+from .models import Employee, ShiftType, Shift, CompanyHoliday, LaborLawSettings, Role, ShiftTypeRoleMinWorker
+from .forms import ShiftForm, AutoShiftForm, CompanyHolidayBulkAddForm
 from django.urls import reverse
 from django.utils.html import format_html
 from django.http import HttpResponseRedirect
@@ -9,6 +9,7 @@ from django.urls import path
 from django.shortcuts import render, redirect
 from django import forms
 from datetime import date, timedelta
+jpholiday = None
 try:
     import jpholiday
 except ImportError:
@@ -41,6 +42,7 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
     
     def bulk_add_view(self, request):
         """一括追加ビュー"""
+        global jpholiday
         if request.method == 'POST':
             form = CompanyHolidayBulkAddForm(request.POST)
             if form.is_valid():
@@ -110,14 +112,29 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
         return render(request, 'admin/shift/companyholiday/bulk_add.html', context)
 
 
+class ShiftTypeRoleMinWorkerInline(admin.TabularInline):
+    model = ShiftTypeRoleMinWorker
+    extra = 0
+    verbose_name = '役割別最低人数'
+    verbose_name_plural = '役割別最低人数'
+    fields = ('role', 'min_workers')
+    verbose_name_display = {'role': '役割', 'min_workers': '最低人数'}
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        form = formset.form
+        form.base_fields['role'].label = '役割'
+        form.base_fields['min_workers'].label = '最低人数'
+        return formset
+
+
 @admin.register(ShiftType)
 class ShiftTypeAdmin(admin.ModelAdmin):
     list_display = ["name", "is_work", "min_workers", "max_workers", "color_display"]
     list_filter = ["is_work"]
     search_fields = ["name"]
-    fields = ["name", "is_work", "min_workers", "max_workers", "color"]
-    form = ShiftTypeForm
-    
+    inlines = [ShiftTypeRoleMinWorkerInline]
+
     def color_display(self, obj):
         if obj.color:
             return format_html(
@@ -237,10 +254,21 @@ class LaborLawSettingsAdmin(admin.ModelAdmin):
         return super().changeform_view(request, object_id, form_url, extra_context)
 
 
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ['name', 'description']
+    search_fields = ['name', 'description']
+
+
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ['name']
+    list_display = ['name', 'get_roles']
     search_fields = ['name']
+    filter_horizontal = ['roles']
+    
+    def get_roles(self, obj):
+        return ", ".join([role.name for role in obj.roles.all()])
+    get_roles.short_description = "役割"
 
 # 管理画面の上部に「シフト表」リンクを追加
 admin.site.site_header = 'シフト管理'
