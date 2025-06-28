@@ -34,30 +34,30 @@ class ShiftAdmin(admin.ModelAdmin):
 
 @admin.register(LaborLawSettings)
 class LaborLawSettingsAdmin(admin.ModelAdmin):
-    list_display = ["max_consecutive_work_days", "updated_at"]
-    readonly_fields = ["created_at", "updated_at"]
-
+    list_display = ['max_consecutive_work_days', 'min_workers', 'updated_at']
+    readonly_fields = ['created_at', 'updated_at']
+    
     def has_add_permission(self, request):
         # 設定は1つだけ作成可能
         return not LaborLawSettings.objects.exists()
-
+    
     def has_delete_permission(self, request, obj=None):
         # 削除を許可
         return True
-
+    
     def response_add(self, request, obj, post_url_continue=None):
         # 追加後は変更画面にリダイレクト（「保存してもう1つ追加」ボタンを非表示にするため）
         return self.response_post_save_add(request, obj)
-
+    
     def get_readonly_fields(self, request, obj=None):
         # 作成日時と更新日時のみ読み取り専用
-        return ["created_at", "updated_at"]
-
-    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        return ['created_at', 'updated_at']
+    
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         # 追加画面で「保存してもう一つ追加」ボタンを非表示にする
         extra_context = extra_context or {}
         if object_id is None:  # 追加画面の場合
-            extra_context["show_save_and_add_another"] = False
+            extra_context['show_save_and_add_another'] = False
         return super().changeform_view(request, object_id, form_url, extra_context)
 
 
