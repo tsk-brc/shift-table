@@ -197,11 +197,11 @@ class CompanyHolidayBulkAddTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '会社休日一括追加')
 
-    def test_bulk_add_view_post_weekly(self):
-        """Test bulk add view POST with weekly holidays."""
+    def test_bulk_add_view_post_custom_weekday(self):
+        """Test bulk add view POST with custom weekday holidays."""
         url = reverse('admin:shift_companyholiday_bulk_add')
         data = {
-            'holiday_type': 'weekly',
+            'holiday_type': 'custom_weekday',
             'start_date': '2025-01-01',
             'end_date': '2025-01-31',
             'weekday': '0',  # 月曜日
@@ -210,22 +210,11 @@ class CompanyHolidayBulkAddTest(TestCase):
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
 
-    def test_bulk_add_view_post_monthly(self):
-        """Test bulk add view POST with monthly holidays."""
-        url = reverse('admin:shift_companyholiday_bulk_add')
-        data = {
-            'holiday_type': 'monthly',
-            'day': '15',
-            'name': '月次休日'
-        }
-        response = self.client.post(url, data)
-        self.assertEqual(response.status_code, 200)
-
-    def test_bulk_add_view_post_range(self):
+    def test_bulk_add_view_post_date_range(self):
         """Test bulk add view POST with date range holidays."""
         url = reverse('admin:shift_companyholiday_bulk_add')
         data = {
-            'holiday_type': 'range',
+            'holiday_type': 'date_range',
             'start_date': '2025-01-01',
             'end_date': '2025-01-05',
             'name': '期間休日'
@@ -233,26 +222,42 @@ class CompanyHolidayBulkAddTest(TestCase):
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
 
-    def test_bulk_add_view_post_single(self):
-        """Test bulk add view POST with single holiday."""
+    def test_bulk_add_view_post_holidays(self):
+        """Test bulk add view POST with holidays."""
         url = reverse('admin:shift_companyholiday_bulk_add')
         data = {
-            'holiday_type': 'single',
-            'date': '2025-01-01',
-            'name': '単日休日'
+            'holiday_type': 'holidays',
+            'start_date': '2025-01-01',
+            'end_date': '2025-01-31',
+            'name': '祝日'
         }
         response = self.client.post(url, data)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)
 
     def test_bulk_add_view_post_invalid_data(self):
         """Test bulk add view POST with invalid data."""
         url = reverse('admin:shift_companyholiday_bulk_add')
         data = {
-            'holiday_type': 'weekly',
+            'holiday_type': 'custom_weekday',
             # 必要なフィールドが不足
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 200)  # フォームエラーで再表示
+
+    def test_bulk_add_view_contains_holiday_name_field(self):
+        """一括追加画面に休日名テキストボックスが表示されること"""
+        url = reverse('admin:shift_companyholiday_bulk_add')
+        response = self.client.get(url)
+        self.assertContains(response, 'name="name"')
+        self.assertContains(response, '休日名')
+
+    def test_bulk_add_view_contains_weekday_select(self):
+        """一括追加画面に曜日プルダウンがHTMLとして含まれていること"""
+        url = reverse('admin:shift_companyholiday_bulk_add')
+        response = self.client.get(url)
+        self.assertContains(response, 'name="weekday"')
+        self.assertContains(response, '月曜日')
+        self.assertContains(response, '火曜日')
 
 
 class AutoShiftCreationTest(TestCase):

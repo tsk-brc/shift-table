@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const startDate = document.getElementById('id_start_date');
     const endDate = document.getElementById('id_end_date');
     const weekday = document.getElementById('id_weekday');
-    const holidayName = document.getElementById('id_holiday_name');
+    const holidayName = document.getElementById('id_name');
     const weekdayRow = weekday.closest('.form-row');
     
     function updateFormFields() {
@@ -137,8 +137,8 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         
         <div class="form-row">
-            <label for="{{ form.holiday_name.id_for_label }}">{{ form.holiday_name.label }}</label>
-            {{ form.holiday_name }}
+            <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}
             <div class="help-text">休日名を入力してください（空欄の場合は自動生成されます）</div>
         </div>
         

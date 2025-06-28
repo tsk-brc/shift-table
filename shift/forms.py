@@ -133,10 +133,6 @@ class CompanyHolidayBulkAddForm(forms.Form):
         ('holidays', '祝日'),
         ('custom_weekday', '指定曜日'),
         ('date_range', '期間'),
-        ('single', '単日'),
-        ('monthly', '毎月指定日'),
-        ('weekly', '毎週指定曜日'),
-        ('range', '日付範囲'),
     ]
     holiday_type = forms.ChoiceField(
         label='休日タイプ',
@@ -161,25 +157,9 @@ class CompanyHolidayBulkAddForm(forms.Form):
         required=False,
         widget=forms.Select(attrs={'class': 'form-control'})
     )
-    day = forms.CharField(
-        label='日',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'})
-    )
-    date = forms.DateField(
-        label='日付',
-        required=False,
-        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
-    )
     name = forms.CharField(
         label='休日名',
         max_length=100,
         widget=forms.TextInput(attrs={'class': 'form-control'}),
-        required=False
-    )
-    description = forms.CharField(
-        label='説明',
-        max_length=200,
-        widget=forms.Textarea(attrs={'class': 'form-control'}),
         required=False
     )
