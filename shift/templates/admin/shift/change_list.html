@@ -1,0 +1,47 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}シフト管理{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script>
+// 即座に実行
+(function() {
+    document.title = 'シフト管理';
+    var h1s = document.querySelectorAll('h1');
+    for (var i = 0; i < h1s.length; i++) {
+        h1s[i].textContent = 'シフト管理';
+    }
+})();
+
+// DOMContentLoadedでも実行
+document.addEventListener('DOMContentLoaded', function() {
+    document.title = 'シフト管理';
+    var h1s = document.querySelectorAll('h1');
+    for (var i = 0; i < h1s.length; i++) {
+        h1s[i].textContent = 'シフト管理';
+    }
+});
+
+// さらに確実にするため、複数回実行
+setInterval(function() {
+    document.title = 'シフト管理';
+    var h1s = document.querySelectorAll('h1');
+    for (var i = 0; i < h1s.length; i++) {
+        h1s[i].textContent = 'シフト管理';
+    }
+}, 100);
+</script>
+{% endblock %}
+
+{% block object-tools-items %}
+    {% if opts.model_name == 'shift' %}
+        <li>
+            <a href="{% url 'admin:shift_auto_create' %}" class="addlink">
+                自動シフト作成
+            </a>
+        </li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %} 

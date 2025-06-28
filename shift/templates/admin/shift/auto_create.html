@@ -1,0 +1,270 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block title %}自動シフト作成{% endblock %}
+
+{% block extrahead %}{{ block.super }}
+<script type="text/javascript" src="{% url 'admin:jsi18n' %}"></script>
+{{ form.media }}
+<script>
+// ページタイトルを強制的に設定
+document.title = '自動シフト作成';
+
+// 即座に実行
+(function() {
+    // ラジオボタンの位置を強制的に調整
+    var radioButtons = document.querySelectorAll('.radio-group input[type="radio"]');
+    for (var i = 0; i < radioButtons.length; i++) {
+        var radio = radioButtons[i];
+        radio.style.margin = '0 8px 0 0';
+        radio.style.float = 'none';
+        radio.style.position = 'relative';
+        radio.style.left = '0';
+        radio.style.display = 'inline-block';
+    }
+    
+    var radioDivs = document.querySelectorAll('.radio-group div');
+    for (var i = 0; i < radioDivs.length; i++) {
+        var div = radioDivs[i];
+        div.style.marginLeft = '0';
+        div.style.paddingLeft = '0';
+        div.style.textAlign = 'left';
+        div.style.display = 'block';
+    }
+})();
+
+// DOMContentLoadedでも実行
+document.addEventListener('DOMContentLoaded', function() {
+    document.title = '自動シフト作成';
+    
+    // h1タグのタイトルを修正
+    var h1Elements = document.querySelectorAll('h1');
+    for (var i = 0; i < h1Elements.length; i++) {
+        var h1 = h1Elements[i];
+        if (h1.textContent.includes('自動シフト作成')) {
+            h1.textContent = '自動シフト作成';
+            h1.innerHTML = '自動シフト作成';
+        }
+    }
+    
+    // ラジオボタンの位置を強制的に調整
+    var radioButtons = document.querySelectorAll('.radio-group input[type="radio"]');
+    for (var i = 0; i < radioButtons.length; i++) {
+        var radio = radioButtons[i];
+        radio.style.margin = '0 8px 0 0';
+        radio.style.float = 'none';
+        radio.style.position = 'relative';
+        radio.style.left = '0';
+        radio.style.display = 'inline-block';
+    }
+    
+    var radioDivs = document.querySelectorAll('.radio-option');
+    for (var i = 0; i < radioDivs.length; i++) {
+        var div = radioDivs[i];
+        div.style.marginLeft = '0';
+        div.style.paddingLeft = '0';
+        div.style.textAlign = 'left';
+        div.style.display = 'block';
+    }
+});
+
+// さらに確実にするため、複数回実行
+setInterval(function() {
+    var radioButtons = document.querySelectorAll('.radio-group input[type="radio"]');
+    for (var i = 0; i < radioButtons.length; i++) {
+        var radio = radioButtons[i];
+        radio.style.margin = '0 8px 0 0';
+        radio.style.float = 'none';
+        radio.style.position = 'relative';
+        radio.style.left = '0';
+        radio.style.display = 'inline-block';
+    }
+    
+    var radioDivs = document.querySelectorAll('.radio-option');
+    for (var i = 0; i < radioDivs.length; i++) {
+        var div = radioDivs[i];
+        div.style.marginLeft = '0';
+        div.style.paddingLeft = '0';
+        div.style.textAlign = 'left';
+        div.style.display = 'block';
+    }
+}, 100);
+</script>
+{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}">
+<style>
+    .form-row {
+        margin-bottom: 20px;
+    }
+    .form-row label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .form-row input, .form-row select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    .radio-group {
+        margin-top: 10px;
+        margin-left: 0 !important;
+        text-align: left;
+        padding-left: 0 !important;
+        position: relative;
+    }
+    .radio-option {
+        margin-bottom: 8px;
+        text-align: left;
+        clear: both;
+        overflow: hidden;
+        display: block;
+        padding-left: 0 !important;
+        margin-left: 0 !important;
+        position: relative;
+    }
+    .radio-group label {
+        font-weight: normal;
+        margin-left: 8px;
+        display: inline;
+        vertical-align: middle;
+    }
+    .radio-group input[type="radio"] {
+        vertical-align: middle;
+        margin: 0 !important;
+        margin-right: 8px !important;
+        float: none !important;
+        display: inline-block;
+        position: relative;
+        top: 0;
+        left: 0 !important;
+    }
+    .radio-group div::after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+    .submit-row {
+        margin-top: 30px;
+        padding: 20px 0;
+        border-top: 1px solid #eee;
+    }
+    .submit-row input {
+        background: #79aec8;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .submit-row input:hover {
+        background: #417690;
+    }
+    .help-text {
+        color: #666;
+        font-size: 0.9em;
+        margin-top: 5px;
+    }
+    
+    /* 強制的にラジオボタンを左端に配置 */
+    #id_creation_mode_0,
+    #id_creation_mode_1 {
+        margin: 0 8px 0 0 !important;
+        float: none !important;
+        position: relative !important;
+        left: 0 !important;
+        display: inline-block !important;
+    }
+    
+    /* ラジオボタンのコンテナを強制的に左揃え */
+    .radio-option {
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+        text-align: left !important;
+        display: block !important;
+    }
+    
+    /* ラジオボタンのラベルを強制的に右側に配置 */
+    .radio-group label[for="id_creation_mode_0"],
+    .radio-group label[for="id_creation_mode_1"] {
+        margin-left: 8px !important;
+        display: inline !important;
+        vertical-align: middle !important;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url 'admin:shift_shift_changelist' %}">シフト</a>
+    &rsaquo; 自動シフト作成
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>自動シフト作成</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-row">
+            <label for="{{ form.year.id_for_label }}">{{ form.year.label }}</label>
+            {{ form.year }}
+            {% if form.year.errors %}
+                <div class="errors">{{ form.year.errors }}</div>
+            {% endif %}
+            <div class="help-text">シフトを作成する年を選択してください</div>
+        </div>
+        
+        <div class="form-row">
+            <label for="{{ form.month.id_for_label }}">{{ form.month.label }}</label>
+            {{ form.month }}
+            {% if form.month.errors %}
+                <div class="errors">{{ form.month.errors }}</div>
+            {% endif %}
+            <div class="help-text">シフトを作成する月を選択してください</div>
+        </div>
+        
+        <div class="form-row">
+            <label>作成モード</label>
+            <div class="radio-group">
+                <div class="radio-option">
+                    <input type="radio" name="{{ form.creation_mode.name }}" value="overwrite" id="id_creation_mode_0" {% if form.creation_mode.value == 'overwrite' %}checked{% endif %}>
+                    <label for="id_creation_mode_0">既存のシフトを上書きして1から作成</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" name="{{ form.creation_mode.name }}" value="fill_gaps" id="id_creation_mode_1" {% if form.creation_mode.value == 'fill_gaps' or not form.creation_mode.value %}checked{% endif %}>
+                    <label for="id_creation_mode_1">既存のシフトを保持して空欄の日付に登録</label>
+                </div>
+            </div>
+            {% if form.creation_mode.errors %}
+                <div class="errors">{{ form.creation_mode.errors }}</div>
+            {% endif %}
+            <div class="help-text">
+                <strong>既存のシフトを上書きして1から作成:</strong> 指定月の全てのシフトを削除して新しく作成します<br>
+                <strong>既存のシフトを保持して空欄の日付に登録:</strong> 既に登録されているシフトは保持し、空欄の日付のみにシフトを作成します
+            </div>
+        </div>
+        
+        <div class="submit-row">
+            <input type="submit" value="自動シフト作成を実行" />
+        </div>
+    </form>
+    
+    <div style="margin-top: 30px; padding: 20px; background: #f9f9f9; border-radius: 4px;">
+        <h3>自動シフト作成の仕様</h3>
+        <ul>
+            <li><strong>会社休日:</strong> 会社休日に設定された日は全従業員が休みになります</li>
+            <li><strong>最低労働者数:</strong> 設定された最低労働者数以上が働くように調整されます</li>
+            <li><strong>最大連続勤務日数:</strong> 前月・来月の登録状況も含めて連続勤務日数制限をチェックします</li>
+            <li><strong>ランダム割り当て:</strong> 制限を満たす範囲でランダムにシフトを割り当てます</li>
+        </ul>
+    </div>
+</div>
+{% endblock %} 
