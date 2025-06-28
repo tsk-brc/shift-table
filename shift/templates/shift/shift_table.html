@@ -179,6 +179,7 @@
                 shift_id: formData.get('shift_id')
             };
             
+            // シフトを保存
             fetch('/shift/save/', {
                 method: 'POST',
                 headers: {
@@ -188,19 +189,39 @@
                 body: JSON.stringify(data)
             })
             .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    if (data.warning) {
-                        // 警告がある場合は確認ダイアログを表示
-                        if (confirm(data.warning + '\n\nこのまま保存しますか？')) {
-                            location.reload();
-                        }
-                    } else {
-                        // 警告がない場合は即座にリロード
-                        location.reload();
+            .then(responseData => {
+                if (responseData.success) {
+                    location.reload();
+                } else if (responseData.warning) {
+                    // 警告がある場合は確認ダイアログを表示
+                    if (confirm(responseData.warning + '\n\nこのまま保存しますか？')) {
+                        // ユーザーがOKを押した場合、強制保存APIを呼び出す
+                        const forceData = {
+                            employee_id: data.employee_id,
+                            date: data.date,
+                            shift_type_id: data.shift_type_id,
+                            shift_id: data.shift_id,
+                            force_save: true
+                        };
+                        fetch('/shift/save/', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken'),
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(forceData)
+                        })
+                        .then(response => response.json())
+                        .then(result => {
+                            if (result.success) {
+                                location.reload();
+                            } else {
+                                alert('保存に失敗しました: ' + result.error);
+                            }
+                        });
                     }
                 } else {
-                    alert('保存に失敗しました: ' + data.error);
+                    alert('保存に失敗しました: ' + responseData.error);
                 }
             });
         });

@@ -152,15 +152,15 @@ class Shift(models.Model):
         settings = LaborLawSettings.get_current_settings()
         min_workers = settings.min_workers
         
-        # 指定日の勤務者数を取得
+        # 指定日の勤務者数を取得（現在のシフトを除外）
         work_shifts = Shift.objects.filter(
             date=self.date,
             shift_type__is_work=True
-        ).exclude(id=self.id)  # 現在のシフトを除外（更新時）
+        ).exclude(id=self.id)
         
         work_count = work_shifts.count()
         
-        # 現在のシフトが勤務日の場合、カウントに追加
+        # 新しいシフト種別が勤務日の場合、カウントに追加
         if self.shift_type.is_work:
             work_count += 1
         
