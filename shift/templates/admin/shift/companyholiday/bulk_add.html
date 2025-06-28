@@ -1,0 +1,159 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block title %}会社休日一括登録 | シフト管理{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">シフト管理</h1>
+{% endblock %}
+
+{% block extrahead %}{{ block.super }}
+<script type="text/javascript" src="{% url 'admin:jsi18n' %}"></script>
+{{ form.media }}
+<style>
+    .form-row {
+        margin-bottom: 15px;
+    }
+    .form-row label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .form-row input, .form-row select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .form-row select {
+        min-height: 40px;
+    }
+    .submit-row {
+        margin-top: 20px;
+        padding: 10px 0;
+        border-top: 1px solid #eee;
+    }
+    .submit-row input {
+        background: #417690;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .submit-row input:hover {
+        background: #295a6d;
+    }
+    .help-text {
+        color: #666;
+        font-size: 12px;
+        margin-top: 5px;
+    }
+    .weekday-row {
+        display: none;
+    }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ページタイトルを強制的に変更
+    document.title = '会社休日一括登録 | シフト管理';
+    
+    const holidayType = document.getElementById('id_holiday_type');
+    const startDate = document.getElementById('id_start_date');
+    const endDate = document.getElementById('id_end_date');
+    const weekday = document.getElementById('id_weekday');
+    const holidayName = document.getElementById('id_holiday_name');
+    const weekdayRow = weekday.closest('.form-row');
+    
+    function updateFormFields() {
+        const type = holidayType.value;
+        
+        // すべてのフィールドをリセット
+        startDate.required = false;
+        endDate.required = false;
+        weekday.required = false;
+        holidayName.required = false;
+        
+        // 曜日フィールドの表示/非表示
+        if (type === 'custom_weekday') {
+            weekdayRow.style.display = 'block';
+            weekday.required = true;
+        } else {
+            weekdayRow.style.display = 'none';
+            weekday.required = false;
+        }
+        
+        // フィールドの必須設定
+        if (type === 'date_range' || type === 'custom_weekday' || type === 'holidays') {
+            startDate.required = true;
+            endDate.required = true;
+            holidayName.required = true;
+        }
+    }
+    
+    holidayType.addEventListener('change', updateFormFields);
+    updateFormFields();
+});
+</script>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url 'admin:shift_companyholiday_changelist' %}">会社休日</a>
+&rsaquo; 一括登録
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-row">
+            <label for="{{ form.holiday_type.id_for_label }}">{{ form.holiday_type.label }}</label>
+            {{ form.holiday_type }}
+            <div class="help-text">登録する休日のタイプを選択してください</div>
+        </div>
+        
+        <div class="form-row">
+            <label for="{{ form.start_date.id_for_label }}">{{ form.start_date.label }}</label>
+            {{ form.start_date }}
+            <div class="help-text">開始日を指定してください</div>
+        </div>
+        
+        <div class="form-row">
+            <label for="{{ form.end_date.id_for_label }}">{{ form.end_date.label }}</label>
+            {{ form.end_date }}
+            <div class="help-text">終了日を指定してください</div>
+        </div>
+        
+        <div class="form-row weekday-row">
+            <label for="{{ form.weekday.id_for_label }}">{{ form.weekday.label }}</label>
+            {{ form.weekday }}
+            <div class="help-text">指定曜日を選択してください</div>
+        </div>
+        
+        <div class="form-row">
+            <label for="{{ form.holiday_name.id_for_label }}">{{ form.holiday_name.label }}</label>
+            {{ form.holiday_name }}
+            <div class="help-text">休日名を入力してください（空欄の場合は自動生成されます）</div>
+        </div>
+        
+        <div class="submit-row">
+            <input type="submit" value="一括登録" />
+        </div>
+    </form>
+    
+    <div style="margin-top: 30px; padding: 15px; background: #f9f9f9; border-radius: 4px;">
+        <h3>登録タイプの説明</h3>
+        <ul>
+            <li><strong>祝日</strong>: 指定期間の祝日を休日として登録</li>
+            <li><strong>指定曜日</strong>: 指定期間の特定曜日を休日として登録</li>
+            <li><strong>期間</strong>: 指定期間の全日を休日として登録</li>
+        </ul>
+    </div>
+</div>
+{% endblock %} 
