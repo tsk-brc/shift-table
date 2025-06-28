@@ -30,19 +30,18 @@ class EmployeeFactory(factory.django.DjangoModelFactory):
 class ShiftTypeFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ShiftType
-
-    name = factory.Sequence(lambda n: f'シフト種別{n}')
+    name = factory.Sequence(lambda n: f"シフト{n}")
     is_work = True
-    color = factory.Iterator(['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'])
+    color = "#ffffff"
 
 
 class WorkShiftTypeFactory(ShiftTypeFactory):
-    name = factory.Iterator(['出勤', '早番', '遅番'])
+    name = factory.Sequence(lambda n: f"出勤{n}")
     is_work = True
 
 
 class RestShiftTypeFactory(ShiftTypeFactory):
-    name = factory.Iterator(['休み', '有給', '病欠'])
+    name = factory.Sequence(lambda n: f"休み{n}")
     is_work = False
 
 

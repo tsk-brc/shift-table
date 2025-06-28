@@ -9,6 +9,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': ':memory:',
+        'TEST': {
+            'NAME': ':memory:',
+        }
     }
 }
 
@@ -41,4 +44,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Disable apps that might interfere with testing
-INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'shift.tests'] 
+INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'shift.tests']
+
+# Test database isolation
+TEST_RUNNER = 'django.test.runner.DiscoverRunner' 

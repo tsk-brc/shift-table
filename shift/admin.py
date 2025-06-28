@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib import messages
 from .models import Employee, ShiftType, Shift, CompanyHoliday, LaborLawSettings
-from .forms import ShiftForm, AutoShiftForm, ShiftTypeForm
+from .forms import ShiftForm, AutoShiftForm, ShiftTypeForm, CompanyHolidayBulkAddForm
 from django.urls import reverse
 from django.utils.html import format_html
 from django.http import HttpResponseRedirect
@@ -14,54 +14,6 @@ from calendar import monthrange
 import re
 from django.http import HttpResponse
 from django.template.loader import render_to_string
-
-
-class BulkHolidayForm(forms.Form):
-    HOLIDAY_TYPE_CHOICES = [
-        ('holidays', '祝日'),
-        ('custom_weekday', '指定曜日'),
-        ('date_range', '期間'),
-    ]
-    
-    holiday_type = forms.ChoiceField(
-        label='休日タイプ',
-        choices=HOLIDAY_TYPE_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-    
-    start_date = forms.DateField(
-        label='開始日',
-        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-        required=False
-    )
-    
-    end_date = forms.DateField(
-        label='終了日',
-        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-        required=False
-    )
-    
-    weekday = forms.ChoiceField(
-        label='曜日',
-        choices=[
-            (0, '月曜日'),
-            (1, '火曜日'),
-            (2, '水曜日'),
-            (3, '木曜日'),
-            (4, '金曜日'),
-            (5, '土曜日'),
-            (6, '日曜日'),
-        ],
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-    
-    holiday_name = forms.CharField(
-        label='休日名',
-        max_length=100,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        required=False
-    )
 
 
 @admin.register(CompanyHoliday)
@@ -87,14 +39,14 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
     def bulk_add_view(self, request):
         """一括追加ビュー"""
         if request.method == 'POST':
-            form = BulkHolidayForm(request.POST)
+            form = CompanyHolidayBulkAddForm(request.POST)
             if form.is_valid():
                 # フォーム処理（既存のコード）
                 holiday_type = form.cleaned_data['holiday_type']
                 start_date = form.cleaned_data['start_date']
                 end_date = form.cleaned_data['end_date']
                 weekday = form.cleaned_data['weekday']
-                holiday_name = form.cleaned_data['holiday_name']
+                holiday_name = form.cleaned_data['name']
                 
                 if holiday_type and start_date and end_date:
                     created_count = 0
@@ -145,7 +97,7 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
                 else:
                     messages.error(request, '必要な情報を入力してください。')
         else:
-            form = BulkHolidayForm()
+            form = CompanyHolidayBulkAddForm()
         
         context = {
             'title': '会社休日一括追加',
