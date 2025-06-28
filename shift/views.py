@@ -160,21 +160,23 @@ def save_shift(request):
                     {"success": False, "error": "既にシフトが登録されています"}
                 )
 
-        # 連続勤務日数制限の警告チェック
-        warning = shift.check_consecutive_work_days()
-        if warning:
-            return JsonResponse({
-                'success': True, 
-                'warning': warning['message']
-            })
-        
-        # 最低労働者数制限の警告チェック
-        min_workers_warning = shift.check_min_workers()
-        if min_workers_warning:
-            return JsonResponse({
-                'success': True, 
-                'warning': min_workers_warning['message']
-            })
+        # 勤務日かどうかでチェック内容を分ける
+        if shift_type.is_work:
+            # 勤務日：連続勤務日数制限の警告チェック
+            warning = shift.check_consecutive_work_days()
+            if warning:
+                return JsonResponse({
+                    'success': True, 
+                    'warning': warning['message']
+                })
+        else:
+            # 休み：最低労働者数制限の警告チェック
+            min_workers_warning = shift.check_min_workers()
+            if min_workers_warning:
+                return JsonResponse({
+                    'success': True, 
+                    'warning': min_workers_warning['message']
+                })
         
         return JsonResponse({'success': True})
 
