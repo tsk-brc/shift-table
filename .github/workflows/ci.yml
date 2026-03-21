@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      - run: flake8 shift/ shift_table/ --max-line-length=120 --ignore=E501,W503
+      - run: flake8 shift/ shift_table/
       - run: black --check shift/ shift_table/
 
   test:
