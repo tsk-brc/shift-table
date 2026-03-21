@@ -227,7 +227,10 @@ class Shift(models.Model):
         if total_count < self.shift_type.min_workers:
             return {
                 "warning": True,
-                "message": f"{self.date}の{self.shift_type.name}の人数が{total_count}人となり、設定された最低人数({self.shift_type.min_workers}人)を下回っています。",
+                "message": (
+                    f"{self.date}の{self.shift_type.name}の人数が{total_count}人となり、"
+                    f"設定された最低人数({self.shift_type.min_workers}人)を下回っています。"
+                ),
                 "current_workers": total_count,
                 "min_workers": self.shift_type.min_workers,
             }
@@ -236,7 +239,10 @@ class Shift(models.Model):
         if self.shift_type.max_workers and total_count > self.shift_type.max_workers:
             return {
                 "warning": True,
-                "message": f"{self.date}の{self.shift_type.name}の人数が{total_count}人となり、設定された最大人数({self.shift_type.max_workers}人)を超えています。",
+                "message": (
+                    f"{self.date}の{self.shift_type.name}の人数が{total_count}人となり、"
+                    f"設定された最大人数({self.shift_type.max_workers}人)を超えています。"
+                ),
                 "current_workers": total_count,
                 "max_workers": self.shift_type.max_workers,
             }
