@@ -3,31 +3,28 @@ End-to-end tests using Selenium.
 """
 
 import os
+
 import django
 import pytest
 from django.test import LiveServerTestCase
-from django.contrib.auth.models import User
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import Select
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
-from datetime import date
 
 # Django設定を確実に読み込む
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shift_table.settings_test")
 django.setup()
 
 from ..factories import (
-    UserFactory, EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory,
-    RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory
+    EmployeeFactory,
+    LaborLawSettingsFactory,
+    RestShiftTypeFactory,
+    UserFactory,
+    WorkShiftTypeFactory,
 )
 from ..models import ShiftType
 
 
-@pytest.mark.skip(reason="E2E tests require Chrome browser which is not available in Docker")
+@pytest.mark.skip(
+    reason="E2E tests require Chrome browser which is not available in Docker"
+)
 class ShiftTableE2ETest(LiveServerTestCase):
     """End-to-end tests for shift table functionality."""
 
@@ -52,7 +49,9 @@ class ShiftTableE2ETest(LiveServerTestCase):
         self.employee = EmployeeFactory(name="田中太郎")
         self.work_shift_type = WorkShiftTypeFactory(name=f"出勤_{self._testMethodName}")
         self.rest_shift_type = RestShiftTypeFactory(name=f"休み_{self._testMethodName}")
-        self.settings = LaborLawSettingsFactory(min_workers=2, max_consecutive_work_days=6)
+        self.settings = LaborLawSettingsFactory(
+            min_workers=2, max_consecutive_work_days=6
+        )
 
     def test_shift_table_display(self):
         """Test that shift table displays correctly."""
@@ -90,7 +89,9 @@ class ShiftTableE2ETest(LiveServerTestCase):
         self.skipTest("E2E tests are disabled in Docker environment")
 
 
-@pytest.mark.skip(reason="E2E tests require Chrome browser which is not available in Docker")
+@pytest.mark.skip(
+    reason="E2E tests require Chrome browser which is not available in Docker"
+)
 class AdminE2ETest(LiveServerTestCase):
     """End-to-end tests for admin functionality."""
 
@@ -137,4 +138,4 @@ class AdminE2ETest(LiveServerTestCase):
     def test_shift_creation_admin(self):
         """Test creating shift through admin interface."""
         # テストをスキップ
-        self.skipTest("E2E tests are disabled in Docker environment") 
+        self.skipTest("E2E tests are disabled in Docker environment")

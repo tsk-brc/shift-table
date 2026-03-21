@@ -128,7 +128,9 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email settings
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # 開発用（コンソール出力）
+EMAIL_BACKEND = (
+    "django.core.mail.backends.console.EmailBackend"  # 開発用（コンソール出力）
+)
 # 本番環境では以下のように設定してください：
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # EMAIL_HOST = 'smtp.gmail.com'  # または他のSMTPサーバー

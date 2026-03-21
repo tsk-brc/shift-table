@@ -1,7 +1,6 @@
 from django.db import models
-from datetime import datetime, timedelta, date
 from calendar import monthrange
-import random
+from datetime import date, timedelta
 from django.core.exceptions import ValidationError
 
 # Create your models here.
@@ -9,12 +8,13 @@ from django.core.exceptions import ValidationError
 
 class Role(models.Model):
     """従業員の役割（ホール、キッチンなど）"""
+
     name = models.CharField("役割名", max_length=50, unique=True)
     description = models.TextField("説明", blank=True)
-    
+
     def __str__(self):
         return self.name
-    
+
     class Meta:
         verbose_name = "役割"
         verbose_name_plural = "役割"
@@ -38,15 +38,19 @@ class ShiftType(models.Model):
         "勤務日", default=True, help_text="休み以外の勤務日かどうか"
     )
     color = models.CharField(
-        "色", max_length=7, default="#79aec8", 
-        help_text="シフト表での表示色（例: #79aec8）"
+        "色",
+        max_length=7,
+        default="#79aec8",
+        help_text="シフト表での表示色（例: #79aec8）",
     )
     min_workers = models.PositiveIntegerField(
         "最低人数", default=1, help_text="このシフト種別に必要な最低人数"
     )
     max_workers = models.PositiveIntegerField(
-        "最大人数", null=True, blank=True, 
-        help_text="このシフト種別の最大人数（設定しない場合は制限なし）"
+        "最大人数",
+        null=True,
+        blank=True,
+        help_text="このシフト種別の最大人数（設定しない場合は制限なし）",
     )
 
     def __str__(self):
@@ -98,23 +102,24 @@ class LaborLawSettings(models.Model):
     def get_current_settings(cls):
         """現在の設定を取得（設定がない場合はデフォルト値で作成）"""
         settings, created = cls.objects.get_or_create(
-            defaults={
-                "max_consecutive_work_days": 6,
-                "min_workers": 1
-            }
+            defaults={"max_consecutive_work_days": 6, "min_workers": 1}
         )
         return settings
 
 
 class Shift(models.Model):
-    employee = models.ForeignKey(Employee, verbose_name='従業員', on_delete=models.CASCADE)
-    date = models.DateField('日付')
-    shift_type = models.ForeignKey(ShiftType, verbose_name='シフト種別', on_delete=models.PROTECT)
+    employee = models.ForeignKey(
+        Employee, verbose_name="従業員", on_delete=models.CASCADE
+    )
+    date = models.DateField("日付")
+    shift_type = models.ForeignKey(
+        ShiftType, verbose_name="シフト種別", on_delete=models.PROTECT
+    )
 
     class Meta:
-        unique_together = ('employee', 'date')
-        verbose_name = 'シフト'
-        verbose_name_plural = 'シフト'
+        unique_together = ("employee", "date")
+        verbose_name = "シフト"
+        verbose_name_plural = "シフト"
 
     def __str__(self):
         return f"{self.date} {self.employee.name} {self.shift_type.name}"
@@ -123,51 +128,53 @@ class Shift(models.Model):
         """連続勤務日数制限をチェック"""
         if not self.shift_type.is_work:
             return None  # 休みの場合はチェック不要
-        
+
         settings = LaborLawSettings.get_current_settings()
         max_days = settings.max_consecutive_work_days
-        
+
         # 指定日から前後「最大連続勤務日数」分のシフトを取得
         start_date = self.date - timedelta(days=max_days)
         end_date = self.date + timedelta(days=max_days)
-        
+
         # 勤務日のみのシフトを取得（休みは除外）
         shifts = Shift.objects.filter(
             employee=self.employee,
             date__range=[start_date, end_date],
-            shift_type__is_work=True
-        ).exclude(id=self.id)  # 現在のシフトを除外（更新時）
-        
+            shift_type__is_work=True,
+        ).exclude(
+            id=self.id
+        )  # 現在のシフトを除外（更新時）
+
         # 勤務日の日付リストを作成
-        work_dates = set(shifts.values_list('date', flat=True))
+        work_dates = set(shifts.values_list("date", flat=True))
         if self.shift_type.is_work:  # 現在のシフトが勤務日の場合のみ追加
             work_dates.add(self.date)
-        
+
         # 連続勤務日数を計算（勤務日のみ）
         max_consecutive = 0
         current_consecutive = 0
         sorted_dates = sorted(work_dates)
-        
+
         for i, work_date in enumerate(sorted_dates):
             if i == 0:
                 current_consecutive = 1
             else:
-                prev_date = sorted_dates[i-1]
+                prev_date = sorted_dates[i - 1]
                 if (work_date - prev_date).days == 1:
                     current_consecutive += 1
                 else:
                     current_consecutive = 1
-            
+
             max_consecutive = max(max_consecutive, current_consecutive)
-        
+
         if max_consecutive > max_days:
             return {
-                'warning': True,
-                'message': f'連続勤務日数が{max_consecutive}日となり、設定された上限({max_days}日)を超えています。',
-                'consecutive_days': max_consecutive,
-                'max_days': max_days
+                "warning": True,
+                "message": f"連続勤務日数が{max_consecutive}日となり、設定された上限({max_days}日)を超えています。",
+                "consecutive_days": max_consecutive,
+                "max_days": max_days,
             }
-        
+
         return None
 
     def check_min_workers(self):
@@ -176,116 +183,121 @@ class Shift(models.Model):
         company_holiday = CompanyHoliday.objects.filter(date=self.date).first()
         if company_holiday:
             return None
-        
+
         settings = LaborLawSettings.get_current_settings()
         min_workers = settings.min_workers
-        
+
         # 指定日の勤務者数を取得（現在のシフトを除外）
         work_shifts = Shift.objects.filter(
-            date=self.date,
-            shift_type__is_work=True
+            date=self.date, shift_type__is_work=True
         ).exclude(id=self.id)
-        
+
         work_count = work_shifts.count()
-        
+
         # 新しいシフト種別が勤務日の場合、カウントに追加
         if self.shift_type.is_work:
             work_count += 1
-        
+
         if work_count < min_workers:
             return {
-                'warning': True,
-                'message': f'{self.date}の勤務者数が{work_count}人となり、設定された最低労働者数({min_workers}人)を下回っています。',
-                'current_workers': work_count,
-                'min_workers': min_workers
+                "warning": True,
+                "message": f"{self.date}の勤務者数が{work_count}人となり、設定された最低労働者数({min_workers}人)を下回っています。",
+                "current_workers": work_count,
+                "min_workers": min_workers,
             }
-        
+
         return None
 
     def check_shift_type_worker_limits(self):
         """シフト種別ごとの人数制限をチェック"""
         if not self.shift_type.is_work:
             return None  # 休みの場合はチェック不要
-        
+
         # 指定日の同じシフト種別の人数を取得（現在のシフトを除外）
-        same_shift_count = Shift.objects.filter(
-            date=self.date,
-            shift_type=self.shift_type
-        ).exclude(id=self.id).count()
-        
+        same_shift_count = (
+            Shift.objects.filter(date=self.date, shift_type=self.shift_type)
+            .exclude(id=self.id)
+            .count()
+        )
+
         # 新しいシフトを追加した場合の人数
         total_count = same_shift_count + 1
-        
+
         # 最低人数チェック
         if total_count < self.shift_type.min_workers:
             return {
-                'warning': True,
-                'message': f'{self.date}の{self.shift_type.name}の人数が{total_count}人となり、設定された最低人数({self.shift_type.min_workers}人)を下回っています。',
-                'current_workers': total_count,
-                'min_workers': self.shift_type.min_workers
+                "warning": True,
+                "message": f"{self.date}の{self.shift_type.name}の人数が{total_count}人となり、設定された最低人数({self.shift_type.min_workers}人)を下回っています。",
+                "current_workers": total_count,
+                "min_workers": self.shift_type.min_workers,
             }
-        
+
         # 最大人数チェック
         if self.shift_type.max_workers and total_count > self.shift_type.max_workers:
             return {
-                'warning': True,
-                'message': f'{self.date}の{self.shift_type.name}の人数が{total_count}人となり、設定された最大人数({self.shift_type.max_workers}人)を超えています。',
-                'current_workers': total_count,
-                'max_workers': self.shift_type.max_workers
+                "warning": True,
+                "message": f"{self.date}の{self.shift_type.name}の人数が{total_count}人となり、設定された最大人数({self.shift_type.max_workers}人)を超えています。",
+                "current_workers": total_count,
+                "max_workers": self.shift_type.max_workers,
             }
-        
+
         return None
 
     @classmethod
-    def create_auto_shifts(cls, year, month, creation_mode='fill_gaps'):
+    def create_auto_shifts(cls, year, month, creation_mode="fill_gaps"):
         """自動シフト作成（シフト種別ごとのmin/max人数＋全体min_workers＋役割別最低人数を考慮）"""
         settings = LaborLawSettings.get_current_settings()
         employees = list(Employee.objects.all())
         work_shift_types = list(ShiftType.objects.filter(is_work=True))
         rest_shift_type = ShiftType.objects.filter(is_work=False).first()
         roles = list(Role.objects.all())
-        
+
         if not employees:
-            return {'success': False, 'error': '従業員が登録されていません。'}
+            return {"success": False, "error": "従業員が登録されていません。"}
         if not work_shift_types:
-            return {'success': False, 'error': '勤務シフト種別が登録されていません。'}
+            return {"success": False, "error": "勤務シフト種別が登録されていません。"}
         if not rest_shift_type:
-            return {'success': False, 'error': '休みシフト種別が登録されていません。'}
-        
+            return {"success": False, "error": "休みシフト種別が登録されていません。"}
+
         num_days = monthrange(year, month)[1]
         target_dates = [date(year, month, d) for d in range(1, num_days + 1)]
-        company_holidays = set(CompanyHoliday.objects.filter(
-            date__year=year, date__month=month
-        ).values_list('date', flat=True))
-        
+        company_holidays = set(
+            CompanyHoliday.objects.filter(
+                date__year=year, date__month=month
+            ).values_list("date", flat=True)
+        )
+
         existing_shifts = {}
-        if creation_mode == 'fill_gaps':
+        if creation_mode == "fill_gaps":
             existing_shifts = {
-                f"{s.employee_id}_{s.date.isoformat()}": s 
+                f"{s.employee_id}_{s.date.isoformat()}": s
                 for s in cls.objects.filter(date__year=year, date__month=month)
             }
-        elif creation_mode == 'overwrite':
+        elif creation_mode == "overwrite":
             cls.objects.filter(date__year=year, date__month=month).delete()
-        
+
         work_days_count = {emp.id: 0 for emp in employees}
         for shift in cls.objects.filter(date__year=year, date__month=month):
             if shift.shift_type.is_work:
                 work_days_count[shift.employee.id] += 1
-        
+
         created_count = 0
         updated_count = 0
-        
+
         for target_date in target_dates:
             shift_key = f"{target_date.isoformat()}"
             if target_date in company_holidays:
                 for employee in employees:
                     employee_shift_key = f"{employee.id}_{shift_key}"
-                    if creation_mode == 'fill_gaps' and employee_shift_key in existing_shifts:
+                    if (
+                        creation_mode == "fill_gaps"
+                        and employee_shift_key in existing_shifts
+                    ):
                         continue
                     shift, created = cls.objects.update_or_create(
                         employee=employee,
                         date=target_date,
-                        defaults={'shift_type': rest_shift_type}
+                        defaults={"shift_type": rest_shift_type},
                     )
                     if created:
                         created_count += 1
@@ -295,27 +307,38 @@ class Shift(models.Model):
             available_employees = []
             for employee in employees:
                 employee_shift_key = f"{employee.id}_{shift_key}"
-                if creation_mode == 'fill_gaps' and employee_shift_key in existing_shifts:
+                if (
+                    creation_mode == "fill_gaps"
+                    and employee_shift_key in existing_shifts
+                ):
                     continue
                 available_employees.append(employee)
             if not available_employees:
                 continue
             assigned_employees = set()
             assigned_work_employees = set()
-            
+
             # 1. 各シフト種別のmin_workersをまず割り当て
             for shift_type in work_shift_types:
-                already_assigned = cls.objects.filter(date=target_date, shift_type=shift_type).count()
+                already_assigned = cls.objects.filter(
+                    date=target_date, shift_type=shift_type
+                ).count()
                 min_needed = max(0, shift_type.min_workers - already_assigned)
-                max_allowed = (shift_type.max_workers or len(employees)) - already_assigned
-                candidates = [e for e in available_employees if e not in assigned_employees]
-                candidates_sorted = sorted(candidates, key=lambda e: work_days_count[e.id])
+                max_allowed = (
+                    shift_type.max_workers or len(employees)
+                ) - already_assigned
+                candidates = [
+                    e for e in available_employees if e not in assigned_employees
+                ]
+                candidates_sorted = sorted(
+                    candidates, key=lambda e: work_days_count[e.id]
+                )
                 selected = candidates_sorted[:max_allowed]
                 for employee in selected[:min_needed]:
                     shift, created = cls.objects.update_or_create(
                         employee=employee,
                         date=target_date,
-                        defaults={'shift_type': shift_type}
+                        defaults={"shift_type": shift_type},
                     )
                     assigned_employees.add(employee)
                     assigned_work_employees.add(employee)
@@ -325,50 +348,64 @@ class Shift(models.Model):
                         created_count += 1
                     else:
                         updated_count += 1
-            
+
             # 2. 役割別最低人数を満たすように追加割り当て
             for shift_type in work_shift_types:
                 if not shift_type.role_min_workers.exists():
                     continue
-                
+
                 # そのシフト種別に既に割り当てられている従業員
-                assigned_to_shift = cls.objects.filter(date=target_date, shift_type=shift_type)
-                assigned_employee_ids = set(assigned_to_shift.values_list('employee_id', flat=True))
-                
+                assigned_to_shift = cls.objects.filter(
+                    date=target_date, shift_type=shift_type
+                )
+                assigned_employee_ids = set(
+                    assigned_to_shift.values_list("employee_id", flat=True)
+                )
+
                 # 各役割の現在の人数をカウント
                 role_counts = {}
                 for role in roles:
                     role_counts[role.name] = 0
-                
+
                 for emp_id in assigned_employee_ids:
                     employee = Employee.objects.get(id=emp_id)
                     for role in employee.roles.all():
                         role_counts[role.name] = role_counts.get(role.name, 0) + 1
-                
+
                 # 役割別最低人数を満たすために必要な追加人数
-                candidates = [e for e in available_employees if e not in assigned_employees]
-                candidates_sorted = sorted(candidates, key=lambda e: work_days_count[e.id])
-                
+                candidates = [
+                    e for e in available_employees if e not in assigned_employees
+                ]
+                candidates_sorted = sorted(
+                    candidates, key=lambda e: work_days_count[e.id]
+                )
+
                 for role_min_worker in shift_type.role_min_workers.all():
                     role_name = role_min_worker.role.name
                     min_count = role_min_worker.min_workers
                     current_count = role_counts.get(role_name, 0)
                     needed = max(0, min_count - current_count)
-                    
+
                     if needed > 0:
                         # その役割を持つ従業員を優先的に選択
-                        role_employees = [e for e in candidates_sorted if e.roles.filter(name=role_name).exists()]
-                        other_employees = [e for e in candidates_sorted if e not in role_employees]
-                        
+                        role_employees = [
+                            e
+                            for e in candidates_sorted
+                            if e.roles.filter(name=role_name).exists()
+                        ]
+                        other_employees = [
+                            e for e in candidates_sorted if e not in role_employees
+                        ]
+
                         # 役割を持つ従業員を優先
                         priority_candidates = role_employees + other_employees
-                        
+
                         for employee in priority_candidates[:needed]:
                             if employee not in assigned_employees:
                                 shift, created = cls.objects.update_or_create(
                                     employee=employee,
                                     date=target_date,
-                                    defaults={'shift_type': shift_type}
+                                    defaults={"shift_type": shift_type},
                                 )
                                 assigned_employees.add(employee)
                                 assigned_work_employees.add(employee)
@@ -378,17 +415,28 @@ class Shift(models.Model):
                                     created_count += 1
                                 else:
                                     updated_count += 1
-            
+
             # 3. 全体のmin_workersを満たすまでmax_workersの範囲内で追加割り当て
             current_workers = len(assigned_work_employees)
             needed_workers = max(0, settings.min_workers - current_workers)
             if needed_workers > 0:
-                candidates = [e for e in available_employees if e not in assigned_employees]
-                candidates_sorted = sorted(candidates, key=lambda e: work_days_count[e.id])
+                candidates = [
+                    e for e in available_employees if e not in assigned_employees
+                ]
+                candidates_sorted = sorted(
+                    candidates, key=lambda e: work_days_count[e.id]
+                )
                 for shift_type in work_shift_types:
-                    already_assigned = cls.objects.filter(date=target_date, shift_type=shift_type).count() + \
-                        sum(1 for e in assigned_work_employees if e in assigned_work_employees)
-                    max_allowed = (shift_type.max_workers or len(employees)) - already_assigned
+                    already_assigned = cls.objects.filter(
+                        date=target_date, shift_type=shift_type
+                    ).count() + sum(
+                        1
+                        for e in assigned_work_employees
+                        if e in assigned_work_employees
+                    )
+                    max_allowed = (
+                        shift_type.max_workers or len(employees)
+                    ) - already_assigned
                     can_assign = min(needed_workers, max_allowed)
                     if can_assign <= 0:
                         continue
@@ -396,7 +444,7 @@ class Shift(models.Model):
                         shift, created = cls.objects.update_or_create(
                             employee=employee,
                             date=target_date,
-                            defaults={'shift_type': shift_type}
+                            defaults={"shift_type": shift_type},
                         )
                         assigned_employees.add(employee)
                         assigned_work_employees.add(employee)
@@ -411,13 +459,13 @@ class Shift(models.Model):
                             break
                     if needed_workers <= 0:
                         break
-            
+
             # 4. 残りは休み
             for employee in set(available_employees) - assigned_employees:
                 shift, created = cls.objects.update_or_create(
                     employee=employee,
                     date=target_date,
-                    defaults={'shift_type': rest_shift_type}
+                    defaults={"shift_type": rest_shift_type},
                 )
                 if created:
                     created_count += 1
@@ -433,14 +481,16 @@ class Shift(models.Model):
 
 
 class ShiftTypeRoleMinWorker(models.Model):
-    shift_type = models.ForeignKey('ShiftType', on_delete=models.CASCADE, related_name='role_min_workers')
-    role = models.ForeignKey('Role', on_delete=models.CASCADE)
+    shift_type = models.ForeignKey(
+        "ShiftType", on_delete=models.CASCADE, related_name="role_min_workers"
+    )
+    role = models.ForeignKey("Role", on_delete=models.CASCADE)
     min_workers = models.PositiveIntegerField(default=0)
 
     class Meta:
-        unique_together = ('shift_type', 'role')
-        verbose_name = 'シフト種別役割別最低人数'
-        verbose_name_plural = 'シフト種別役割別最低人数'
+        unique_together = ("shift_type", "role")
+        verbose_name = "シフト種別役割別最低人数"
+        verbose_name_plural = "シフト種別役割別最低人数"
 
     def __str__(self):
         return f"{self.shift_type} - {self.role}: {self.min_workers}"

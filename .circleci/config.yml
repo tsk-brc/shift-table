@@ -50,7 +50,7 @@ jobs:
       - run:
           name: Run linting
           command: |
-            flake8 shift/ shift_table/ --max-line-length=120 --ignore=E501,W503 || echo "Linting completed"
+            flake8 shift/ shift_table/ || echo "Linting completed"
             black --check shift/ shift_table/ || echo "Black check completed"
 
   security:

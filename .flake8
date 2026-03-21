@@ -1,0 +1,9 @@
+[flake8]
+max-line-length = 120
+ignore = E501,W503
+per-file-ignores =
+    shift_table/settings_test.py:F403,F405
+    shift/test_files/test_direct_password_change.py:E402
+    shift/test_files/test_models.py:E402
+    shift/test_files/test_e2e.py:E402
+    shift/test_files/test_views.py:E402

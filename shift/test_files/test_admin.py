@@ -4,25 +4,30 @@ Tests for admin functionality.
 
 import os
 import django
-import json
-from datetime import date, timedelta
-from django.test import TestCase, Client
-from django.urls import reverse
-from django.contrib.auth.models import User
 from django.contrib.admin.sites import site
-from ..models import Employee, ShiftType, CompanyHoliday, LaborLawSettings, Shift
+from django.test import Client, TestCase
+from django.urls import reverse
+
 from ..admin import (
-    EmployeeAdmin, ShiftTypeAdmin, CompanyHolidayAdmin, 
-    LaborLawSettingsAdmin, ShiftAdmin
+    CompanyHolidayAdmin,
+    EmployeeAdmin,
+    LaborLawSettingsAdmin,
+    ShiftAdmin,
+    ShiftTypeAdmin,
 )
 from ..factories import (
-    EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory, 
-    RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory,
-    ShiftFactory, UserFactory, RoleFactory
+    CompanyHolidayFactory,
+    EmployeeFactory,
+    LaborLawSettingsFactory,
+    RoleFactory,
+    ShiftFactory,
+    ShiftTypeFactory,
+    UserFactory,
 )
+from ..models import CompanyHoliday, Employee, LaborLawSettings, Shift, ShiftType
 
 # Django設定を確実に読み込む
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shift_table.settings_test")
 django.setup()
 
 
@@ -80,117 +85,117 @@ class AdminViewTest(TestCase):
 
     def test_employee_admin_list_view(self):
         """Test employee admin list view."""
-        employee = EmployeeFactory()
-        url = reverse('admin:shift_employee_changelist')
+        EmployeeFactory()
+        url = reverse("admin:shift_employee_changelist")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_shift_type_admin_list_view(self):
         """Test shift type admin list view."""
-        shift_type = ShiftTypeFactory(name=f"出勤_{self._testMethodName}")
-        url = reverse('admin:shift_shifttype_changelist')
+        ShiftTypeFactory(name=f"出勤_{self._testMethodName}")
+        url = reverse("admin:shift_shifttype_changelist")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_company_holiday_admin_list_view(self):
         """Test company holiday admin list view."""
-        holiday = CompanyHolidayFactory()
-        url = reverse('admin:shift_companyholiday_changelist')
+        CompanyHolidayFactory()
+        url = reverse("admin:shift_companyholiday_changelist")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_labor_law_settings_admin_list_view(self):
         """Test labor law settings admin list view."""
-        settings = LaborLawSettingsFactory()
-        url = reverse('admin:shift_laborlawsettings_changelist')
+        LaborLawSettingsFactory()
+        url = reverse("admin:shift_laborlawsettings_changelist")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_shift_admin_list_view(self):
         """Test shift admin list view."""
-        shift = ShiftFactory()
-        url = reverse('admin:shift_shift_changelist')
+        ShiftFactory()
+        url = reverse("admin:shift_shift_changelist")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_employee_admin_add_view(self):
         """Test employee admin add view."""
-        url = reverse('admin:shift_employee_add')
+        url = reverse("admin:shift_employee_add")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_shift_type_admin_add_view(self):
         """Test shift type admin add view."""
         # 役割を作成
-        role1 = RoleFactory(name="ホール")
-        role2 = RoleFactory(name="キッチン")
-        
-        url = reverse('admin:shift_shifttype_add')
+        RoleFactory(name="ホール")
+        RoleFactory(name="キッチン")
+
+        url = reverse("admin:shift_shifttype_add")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        
+
         # 基本フィールドが含まれていることを確認
         self.assertContains(response, 'name="name"')
         self.assertContains(response, 'name="is_work"')
         self.assertContains(response, 'name="color"')
         self.assertContains(response, 'name="min_workers"')
         self.assertContains(response, 'name="max_workers"')
-        
+
         # インラインが含まれていることを確認
-        self.assertContains(response, '役割別最低人数')
-        self.assertContains(response, 'role_min_workers-TOTAL_FORMS')
-        self.assertContains(response, 'role_min_workers-INITIAL_FORMS')
+        self.assertContains(response, "役割別最低人数")
+        self.assertContains(response, "role_min_workers-TOTAL_FORMS")
+        self.assertContains(response, "role_min_workers-INITIAL_FORMS")
 
     def test_company_holiday_admin_add_view(self):
         """Test company holiday admin add view."""
-        url = reverse('admin:shift_companyholiday_add')
+        url = reverse("admin:shift_companyholiday_add")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_labor_law_settings_admin_add_view(self):
         """Test labor law settings admin add view."""
-        url = reverse('admin:shift_laborlawsettings_add')
+        url = reverse("admin:shift_laborlawsettings_add")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_shift_admin_add_view(self):
         """Test shift admin add view."""
-        url = reverse('admin:shift_shift_add')
+        url = reverse("admin:shift_shift_add")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_employee_admin_change_view(self):
         """Test employee admin change view."""
         employee = EmployeeFactory()
-        url = reverse('admin:shift_employee_change', args=[employee.id])
+        url = reverse("admin:shift_employee_change", args=[employee.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_shift_type_admin_change_view(self):
         """Test shift type admin change view."""
         shift_type = ShiftTypeFactory(name=f"出勤_{self._testMethodName}")
-        url = reverse('admin:shift_shifttype_change', args=[shift_type.id])
+        url = reverse("admin:shift_shifttype_change", args=[shift_type.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_company_holiday_admin_change_view(self):
         """Test company holiday admin change view."""
         holiday = CompanyHolidayFactory()
-        url = reverse('admin:shift_companyholiday_change', args=[holiday.id])
+        url = reverse("admin:shift_companyholiday_change", args=[holiday.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_labor_law_settings_admin_change_view(self):
         """Test labor law settings admin change view."""
         settings = LaborLawSettingsFactory()
-        url = reverse('admin:shift_laborlawsettings_change', args=[settings.id])
+        url = reverse("admin:shift_laborlawsettings_change", args=[settings.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_shift_admin_change_view(self):
         """Test shift admin change view."""
         shift = ShiftFactory()
-        url = reverse('admin:shift_shift_change', args=[shift.id])
+        url = reverse("admin:shift_shift_change", args=[shift.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
@@ -208,53 +213,53 @@ class CompanyHolidayBulkAddTest(TestCase):
 
     def test_bulk_add_view_get(self):
         """Test bulk add view GET request."""
-        url = reverse('admin:shift_companyholiday_bulk_add')
+        url = reverse("admin:shift_companyholiday_bulk_add")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '会社休日一括追加')
+        self.assertContains(response, "会社休日一括追加")
 
     def test_bulk_add_view_post_custom_weekday(self):
         """Test bulk add view POST with custom weekday holidays."""
-        url = reverse('admin:shift_companyholiday_bulk_add')
+        url = reverse("admin:shift_companyholiday_bulk_add")
         data = {
-            'holiday_type': 'custom_weekday',
-            'start_date': '2025-01-01',
-            'end_date': '2025-01-31',
-            'weekday': '0',  # 月曜日
-            'name': '月曜休日'
+            "holiday_type": "custom_weekday",
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+            "weekday": "0",  # 月曜日
+            "name": "月曜休日",
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
 
     def test_bulk_add_view_post_date_range(self):
         """Test bulk add view POST with date range holidays."""
-        url = reverse('admin:shift_companyholiday_bulk_add')
+        url = reverse("admin:shift_companyholiday_bulk_add")
         data = {
-            'holiday_type': 'date_range',
-            'start_date': '2025-01-01',
-            'end_date': '2025-01-05',
-            'name': '期間休日'
+            "holiday_type": "date_range",
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-05",
+            "name": "期間休日",
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
 
     def test_bulk_add_view_post_holidays(self):
         """Test bulk add view POST with holidays."""
-        url = reverse('admin:shift_companyholiday_bulk_add')
+        url = reverse("admin:shift_companyholiday_bulk_add")
         data = {
-            'holiday_type': 'holidays',
-            'start_date': '2025-01-01',
-            'end_date': '2025-01-31',
-            'name': '祝日'
+            "holiday_type": "holidays",
+            "start_date": "2025-01-01",
+            "end_date": "2025-01-31",
+            "name": "祝日",
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
 
     def test_bulk_add_view_post_invalid_data(self):
         """Test bulk add view POST with invalid data."""
-        url = reverse('admin:shift_companyholiday_bulk_add')
+        url = reverse("admin:shift_companyholiday_bulk_add")
         data = {
-            'holiday_type': 'custom_weekday',
+            "holiday_type": "custom_weekday",
             # 必要なフィールドが不足
         }
         response = self.client.post(url, data)
@@ -262,18 +267,18 @@ class CompanyHolidayBulkAddTest(TestCase):
 
     def test_bulk_add_view_contains_holiday_name_field(self):
         """一括追加画面に休日名テキストボックスが表示されること"""
-        url = reverse('admin:shift_companyholiday_bulk_add')
+        url = reverse("admin:shift_companyholiday_bulk_add")
         response = self.client.get(url)
         self.assertContains(response, 'name="name"')
-        self.assertContains(response, '休日名')
+        self.assertContains(response, "休日名")
 
     def test_bulk_add_view_contains_weekday_select(self):
         """一括追加画面に曜日プルダウンがHTMLとして含まれていること"""
-        url = reverse('admin:shift_companyholiday_bulk_add')
+        url = reverse("admin:shift_companyholiday_bulk_add")
         response = self.client.get(url)
         self.assertContains(response, 'name="weekday"')
-        self.assertContains(response, '月曜日')
-        self.assertContains(response, '火曜日')
+        self.assertContains(response, "月曜日")
+        self.assertContains(response, "火曜日")
 
 
 class AutoShiftCreationTest(TestCase):
@@ -292,37 +297,25 @@ class AutoShiftCreationTest(TestCase):
         url = reverse("admin:shift_auto_create")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '自動シフト作成')
+        self.assertContains(response, "自動シフト作成")
 
     def test_auto_create_view_post_fill_gaps(self):
         """Test auto create view POST with fill gaps mode."""
         url = reverse("admin:shift_auto_create")
-        data = {
-            'year': 2025,
-            'month': 1,
-            'creation_mode': 'fill_gaps'
-        }
+        data = {"year": 2025, "month": 1, "creation_mode": "fill_gaps"}
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 200)
 
     def test_auto_create_view_post_overwrite(self):
         """Test auto create view POST with overwrite mode."""
         url = reverse("admin:shift_auto_create")
-        data = {
-            'year': 2025,
-            'month': 1,
-            'creation_mode': 'overwrite'
-        }
+        data = {"year": 2025, "month": 1, "creation_mode": "overwrite"}
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 200)
 
     def test_auto_create_view_post_invalid_data(self):
         """Test auto create view POST with invalid data."""
         url = reverse("admin:shift_auto_create")
-        data = {
-            'year': 2025,
-            'month': 13,  # 無効な月
-            'creation_mode': 'fill_gaps'
-        }
+        data = {"year": 2025, "month": 13, "creation_mode": "fill_gaps"}  # 無効な月
         response = self.client.post(url, data)
-        self.assertEqual(response.status_code, 200)  # フォームエラーで再表示 
+        self.assertEqual(response.status_code, 200)  # フォームエラーで再表示
