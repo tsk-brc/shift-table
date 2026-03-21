@@ -20,10 +20,10 @@ class BasicTest(TestCase):
 
     def test_admin_url(self):
         """Test that admin URL is accessible."""
-        url = reverse('admin:index')
-        self.assertEqual(url, '/admin/')
+        url = reverse("admin:index")
+        self.assertEqual(url, "/admin/")
 
     def test_shift_url(self):
         """Test that shift URL is accessible."""
-        url = reverse('shift_table')
-        self.assertEqual(url, '/shift/') 
+        url = reverse("shift_table")
+        self.assertEqual(url, "/shift/")

@@ -1,20 +1,19 @@
-from django.shortcuts import render, get_object_or_404
-from django.utils import timezone
+import json
 from calendar import monthrange
-from datetime import date, timedelta
-from .models import Employee, Shift, ShiftType, CompanyHoliday, LaborLawSettings
+from datetime import date
+
+from django.http import JsonResponse
+from django.shortcuts import render
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+
+from .models import CompanyHoliday, Employee, Shift, ShiftType
+
 try:
     import jpholiday
 except ImportError:
     jpholiday = None
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-import json
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth import views as auth_views
-from django.urls import reverse_lazy
-from .forms import ShiftForm
 
 # Create your views here.
 
@@ -94,14 +93,22 @@ def shift_table(request):
             employee_shifts[emp.id][d] = shift_dict.get(key)
 
     # 各従業員ごとの勤務日数・休み日数を計算
-    work_shift_type_ids = set(ShiftType.objects.filter(is_work=True).values_list('id', flat=True))
-    rest_shift_type_ids = set(ShiftType.objects.filter(is_work=False).values_list('id', flat=True))
+    work_shift_type_ids = set(
+        ShiftType.objects.filter(is_work=True).values_list("id", flat=True)
+    )
+    rest_shift_type_ids = set(
+        ShiftType.objects.filter(is_work=False).values_list("id", flat=True)
+    )
     employee_work_days = {}
     employee_rest_days = {}
     for emp in employees:
         emp_shifts = [shift_dict.get(f"{emp.id}_{d.isoformat()}") for d in days]
-        work_days = sum(1 for s in emp_shifts if s and s.shift_type_id in work_shift_type_ids)
-        rest_days = sum(1 for s in emp_shifts if s and s.shift_type_id in rest_shift_type_ids)
+        work_days = sum(
+            1 for s in emp_shifts if s and s.shift_type_id in work_shift_type_ids
+        )
+        rest_days = sum(
+            1 for s in emp_shifts if s and s.shift_type_id in rest_shift_type_ids
+        )
         employee_work_days[emp.id] = work_days
         employee_rest_days[emp.id] = rest_days
 
@@ -164,28 +171,26 @@ def save_shift(request):
         if not data.get("force_save"):
             # 仮のシフトオブジェクトを作成して警告チェック
             temp_shift = Shift(employee=employee, date=date_obj, shift_type=shift_type)
-            
+
             # 更新の場合は既存のシフトIDを設定
             if shift_id:
                 temp_shift.id = shift_id
-            
+
             # 勤務日かどうかでチェック内容を分ける
             if shift_type.is_work:
                 # 勤務日：連続勤務日数制限の警告チェック
                 warning = temp_shift.check_consecutive_work_days()
                 if warning:
-                    return JsonResponse({
-                        'success': False, 
-                        'warning': warning['message']
-                    })
+                    return JsonResponse(
+                        {"success": False, "warning": warning["message"]}
+                    )
             else:
                 # 休み：最低労働者数制限の警告チェック
                 min_workers_warning = temp_shift.check_min_workers()
                 if min_workers_warning:
-                    return JsonResponse({
-                        'success': False, 
-                        'warning': min_workers_warning['message']
-                    })
+                    return JsonResponse(
+                        {"success": False, "warning": min_workers_warning["message"]}
+                    )
 
         # シフトの保存または更新
         if shift_id:
@@ -207,8 +212,8 @@ def save_shift(request):
                 return JsonResponse(
                     {"success": False, "error": "既にシフトが登録されています"}
                 )
-        
-        return JsonResponse({'success': True})
+
+        return JsonResponse({"success": True})
 
     except json.JSONDecodeError:
         return JsonResponse({"success": False, "error": "無効なJSONデータです"})
@@ -232,42 +237,53 @@ def delete_shift(request, shift_id):
 
 def direct_password_change(request):
     """直接パスワード変更機能"""
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        new_password = request.POST.get('new_password')
-        confirm_password = request.POST.get('confirm_password')
-        
+    if request.method == "POST":
+        username = request.POST.get("username")
+        new_password = request.POST.get("new_password")
+        confirm_password = request.POST.get("confirm_password")
+
         # バリデーション
         if not username or not new_password or not confirm_password:
-            return render(request, 'registration/direct_password_change.html', {
-                'error': 'すべての項目を入力してください。'
-            })
-        
+            return render(
+                request,
+                "registration/direct_password_change.html",
+                {"error": "すべての項目を入力してください。"},
+            )
+
         if new_password != confirm_password:
-            return render(request, 'registration/direct_password_change.html', {
-                'error': 'パスワードが一致しません。'
-            })
-        
+            return render(
+                request,
+                "registration/direct_password_change.html",
+                {"error": "パスワードが一致しません。"},
+            )
+
         if len(new_password) < 8:
-            return render(request, 'registration/direct_password_change.html', {
-                'error': 'パスワードは8文字以上で入力してください。'
-            })
-        
+            return render(
+                request,
+                "registration/direct_password_change.html",
+                {"error": "パスワードは8文字以上で入力してください。"},
+            )
+
         # ユーザーの存在確認
         try:
             from django.contrib.auth.models import User
+
             user = User.objects.get(username=username)
         except User.DoesNotExist:
-            return render(request, 'registration/direct_password_change.html', {
-                'error': '指定されたユーザー名が見つかりません。'
-            })
-        
+            return render(
+                request,
+                "registration/direct_password_change.html",
+                {"error": "指定されたユーザー名が見つかりません。"},
+            )
+
         # パスワード変更
         user.set_password(new_password)
         user.save()
-        
-        return render(request, 'registration/direct_password_change_success.html', {
-            'username': username
-        })
-    
-    return render(request, 'registration/direct_password_change.html')
+
+        return render(
+            request,
+            "registration/direct_password_change_success.html",
+            {"username": username},
+        )
+
+    return render(request, "registration/direct_password_change.html")

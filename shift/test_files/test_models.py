@@ -5,20 +5,26 @@ Tests for models.
 import os
 import django
 import pytest
-from datetime import date, timedelta
-from django.test import TestCase
+from datetime import date
+
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.test import TestCase
 
 # Django設定を確実に読み込む
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'shift_table.settings_test')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shift_table.settings_test")
 django.setup()
 
 from ..models import Employee, ShiftType, CompanyHoliday, LaborLawSettings, Shift, Role
 from ..factories import (
-    EmployeeFactory, ShiftTypeFactory, WorkShiftTypeFactory, 
-    RestShiftTypeFactory, CompanyHolidayFactory, LaborLawSettingsFactory,
-    ShiftFactory, RestShiftFactory, RoleFactory, ShiftTypeRoleMinWorkerFactory
+    CompanyHolidayFactory,
+    EmployeeFactory,
+    LaborLawSettingsFactory,
+    RestShiftTypeFactory,
+    RoleFactory,
+    ShiftFactory,
+    ShiftTypeFactory,
+    ShiftTypeRoleMinWorkerFactory,
+    WorkShiftTypeFactory,
 )
 
 
@@ -47,7 +53,7 @@ class EmployeeModelTest(TestCase):
         role1 = RoleFactory(name="ホール")
         role2 = RoleFactory(name="キッチン")
         employee = EmployeeFactory(roles=[role1, role2])
-        
+
         self.assertEqual(employee.roles.count(), 2)
         self.assertIn(role1, employee.roles.all())
         self.assertIn(role2, employee.roles.all())
@@ -122,11 +128,11 @@ class ShiftTypeModelTest(TestCase):
         role1 = RoleFactory(name="ホール")
         role2 = RoleFactory(name="キッチン")
         shift_type = ShiftTypeFactory()
-        
+
         # 役割別最低人数を設定
         ShiftTypeRoleMinWorkerFactory(shift_type=shift_type, role=role1, min_workers=2)
         ShiftTypeRoleMinWorkerFactory(shift_type=shift_type, role=role2, min_workers=1)
-        
+
         # 確認
         self.assertEqual(shift_type.role_min_workers.count(), 2)
         self.assertEqual(shift_type.role_min_workers.get(role=role1).min_workers, 2)
@@ -211,7 +217,7 @@ class LaborLawSettingsModelTest(TestCase):
     def test_get_current_settings(self):
         # 既存の設定をクリア
         LaborLawSettings.objects.all().delete()
-        
+
         # 新しい設定を作成
         settings = LaborLawSettingsFactory()
         current_settings = LaborLawSettings.get_current_settings()
@@ -220,7 +226,7 @@ class LaborLawSettingsModelTest(TestCase):
     def test_get_current_settings_creates_default(self):
         # 既存の設定をクリア
         LaborLawSettings.objects.all().delete()
-        
+
         # 設定が存在しない場合、デフォルト設定が作成される
         current_settings = LaborLawSettings.get_current_settings()
         self.assertIsNotNone(current_settings)
@@ -264,223 +270,217 @@ class ShiftModelTest(TestCase):
         employee = EmployeeFactory()
         shift_type = ShiftTypeFactory()
         date_obj = date(2025, 1, 1)
-        
+
         ShiftFactory(employee=employee, shift_type=shift_type, date=date_obj)
         with self.assertRaises(Exception):  # IntegrityError or ValidationError
             ShiftFactory(employee=employee, shift_type=shift_type, date=date_obj)
 
     def test_check_consecutive_work_days_no_warning(self):
         """Test consecutive work days check with no warning."""
-        settings = LaborLawSettingsFactory(max_consecutive_work_days=6)
+        LaborLawSettingsFactory(max_consecutive_work_days=6)
         employee = EmployeeFactory()
         work_shift_type = WorkShiftTypeFactory()
-        
+
         # Create shifts with gaps (no consecutive work days)
-        shift1 = ShiftFactory(
-            employee=employee,
-            shift_type=work_shift_type,
-            date=date(2025, 1, 1)
+        ShiftFactory(
+            employee=employee, shift_type=work_shift_type, date=date(2025, 1, 1)
         )
         shift2 = ShiftFactory(
             employee=employee,
             shift_type=work_shift_type,
-            date=date(2025, 1, 3)  # Gap of 1 day
+            date=date(2025, 1, 3),  # Gap of 1 day
         )
-        
+
         warning = shift2.check_consecutive_work_days()
         self.assertIsNone(warning)
 
     def test_check_consecutive_work_days_with_warning(self):
         """Test consecutive work days check with warning."""
-        settings = LaborLawSettingsFactory(max_consecutive_work_days=2)
+        LaborLawSettingsFactory(max_consecutive_work_days=2)
         employee = EmployeeFactory()
         work_shift_type = WorkShiftTypeFactory()
-        
+
         # Create consecutive work days
         ShiftFactory(
-            employee=employee,
-            shift_type=work_shift_type,
-            date=date(2025, 1, 1)
+            employee=employee, shift_type=work_shift_type, date=date(2025, 1, 1)
         )
         ShiftFactory(
-            employee=employee,
-            shift_type=work_shift_type,
-            date=date(2025, 1, 2)
+            employee=employee, shift_type=work_shift_type, date=date(2025, 1, 2)
         )
-        
+
         # This should trigger a warning
         shift3 = ShiftFactory(
-            employee=employee,
-            shift_type=work_shift_type,
-            date=date(2025, 1, 3)
+            employee=employee, shift_type=work_shift_type, date=date(2025, 1, 3)
         )
-        
+
         warning = shift3.check_consecutive_work_days()
         self.assertIsNotNone(warning)
-        self.assertTrue(warning['warning'])
-        self.assertIn('連続勤務日数が3日となり', warning['message'])
-        self.assertEqual(warning['consecutive_days'], 3)
-        self.assertEqual(warning['max_days'], 2)
+        self.assertTrue(warning["warning"])
+        self.assertIn("連続勤務日数が3日となり", warning["message"])
+        self.assertEqual(warning["consecutive_days"], 3)
+        self.assertEqual(warning["max_days"], 2)
 
     def test_check_consecutive_work_days_with_holidays(self):
         """Test consecutive work days check excluding holidays."""
-        settings = LaborLawSettingsFactory(max_consecutive_work_days=2)
+        LaborLawSettingsFactory(max_consecutive_work_days=2)
         employee = EmployeeFactory()
         work_shift_type = WorkShiftTypeFactory()
         rest_shift_type = RestShiftTypeFactory()
-        
+
         # Create shifts with holidays in between
         ShiftFactory(
-            employee=employee,
-            shift_type=work_shift_type,
-            date=date(2025, 1, 1)
+            employee=employee, shift_type=work_shift_type, date=date(2025, 1, 1)
         )
         ShiftFactory(
             employee=employee,
             shift_type=rest_shift_type,  # Holiday
-            date=date(2025, 1, 2)
+            date=date(2025, 1, 2),
         )
         ShiftFactory(
-            employee=employee,
-            shift_type=work_shift_type,
-            date=date(2025, 1, 3)
+            employee=employee, shift_type=work_shift_type, date=date(2025, 1, 3)
         )
-        
+
         # This should not trigger a warning because of the holiday
         shift4 = ShiftFactory(
-            employee=employee,
-            shift_type=work_shift_type,
-            date=date(2025, 1, 4)
+            employee=employee, shift_type=work_shift_type, date=date(2025, 1, 4)
         )
-        
+
         warning = shift4.check_consecutive_work_days()
         self.assertIsNone(warning)
 
     def test_check_min_workers_no_warning(self):
         """Test minimum workers check with no warning."""
-        settings = LaborLawSettingsFactory(min_workers=2)
+        LaborLawSettingsFactory(min_workers=2)
         work_shift_type = WorkShiftTypeFactory()
-        
+
         # Create enough workers
         employee1 = EmployeeFactory()
         employee2 = EmployeeFactory()
-        ShiftFactory(employee=employee1, shift_type=work_shift_type, date=date(2025, 1, 1))
-        ShiftFactory(employee=employee2, shift_type=work_shift_type, date=date(2025, 1, 1))
-        
+        ShiftFactory(
+            employee=employee1, shift_type=work_shift_type, date=date(2025, 1, 1)
+        )
+        ShiftFactory(
+            employee=employee2, shift_type=work_shift_type, date=date(2025, 1, 1)
+        )
+
         # This should not trigger a warning
         shift = ShiftFactory(
             employee=EmployeeFactory(),
             shift_type=RestShiftTypeFactory(),  # Rest shift
-            date=date(2025, 1, 1)
+            date=date(2025, 1, 1),
         )
-        
+
         warning = shift.check_min_workers()
         self.assertIsNone(warning)
 
     def test_check_min_workers_with_warning(self):
         """Test minimum workers check with warning."""
-        settings = LaborLawSettingsFactory(min_workers=2)
+        LaborLawSettingsFactory(min_workers=2)
         work_shift_type = WorkShiftTypeFactory()
-        
+
         # Create only one worker
         employee1 = EmployeeFactory()
-        ShiftFactory(employee=employee1, shift_type=work_shift_type, date=date(2025, 1, 1))
-        
+        ShiftFactory(
+            employee=employee1, shift_type=work_shift_type, date=date(2025, 1, 1)
+        )
+
         # This should trigger a warning
         shift = ShiftFactory(
             employee=EmployeeFactory(),
             shift_type=RestShiftTypeFactory(),  # Rest shift
-            date=date(2025, 1, 1)
+            date=date(2025, 1, 1),
         )
-        
+
         warning = shift.check_min_workers()
         self.assertIsNotNone(warning)
-        self.assertTrue(warning['warning'])
-        self.assertIn('勤務者数が1人となり', warning['message'])
-        self.assertEqual(warning['current_workers'], 1)
-        self.assertEqual(warning['min_workers'], 2)
+        self.assertTrue(warning["warning"])
+        self.assertIn("勤務者数が1人となり", warning["message"])
+        self.assertEqual(warning["current_workers"], 1)
+        self.assertEqual(warning["min_workers"], 2)
 
     def test_check_min_workers_company_holiday(self):
         """Test minimum workers check on company holiday."""
-        settings = LaborLawSettingsFactory(min_workers=2)
+        LaborLawSettingsFactory(min_workers=2)
         CompanyHolidayFactory(date=date(2025, 1, 1))
-        
+
         # This should not trigger a warning on company holiday
         shift = ShiftFactory(
             employee=EmployeeFactory(),
             shift_type=RestShiftTypeFactory(),
-            date=date(2025, 1, 1)
+            date=date(2025, 1, 1),
         )
-        
+
         warning = shift.check_min_workers()
         self.assertIsNone(warning)
 
     def test_check_min_workers_update_scenario(self):
         """Test minimum workers check when updating a shift."""
-        settings = LaborLawSettingsFactory(min_workers=2)
+        LaborLawSettingsFactory(min_workers=2)
         work_shift_type = WorkShiftTypeFactory()
         rest_shift_type = RestShiftTypeFactory()
-        
+
         # Create one worker
         employee1 = EmployeeFactory()
-        ShiftFactory(employee=employee1, shift_type=work_shift_type, date=date(2025, 1, 1))
-        
+        ShiftFactory(
+            employee=employee1, shift_type=work_shift_type, date=date(2025, 1, 1)
+        )
+
         # Create a shift that will be updated
         employee2 = EmployeeFactory()
         shift = ShiftFactory(
             employee=employee2,
             shift_type=work_shift_type,  # Initially work shift
-            date=date(2025, 1, 1)
+            date=date(2025, 1, 1),
         )
-        
+
         # Update to rest shift - should trigger warning
         shift.shift_type = rest_shift_type
         warning = shift.check_min_workers()
         self.assertIsNotNone(warning)
-        self.assertTrue(warning['warning'])
-        self.assertIn('勤務者数が1人となり', warning['message'])
-        self.assertEqual(warning['current_workers'], 1)
+        self.assertTrue(warning["warning"])
+        self.assertIn("勤務者数が1人となり", warning["message"])
+        self.assertEqual(warning["current_workers"], 1)
 
     @pytest.mark.slow
     def test_create_auto_shifts(self):
         """Test auto shift creation."""
-        settings = LaborLawSettingsFactory(min_workers=2, max_consecutive_work_days=6)
-        employees = [EmployeeFactory() for _ in range(3)]
-        work_shift_type = WorkShiftTypeFactory()
-        rest_shift_type = RestShiftTypeFactory()
-        
+        LaborLawSettingsFactory(min_workers=2, max_consecutive_work_days=6)
+        [EmployeeFactory() for _ in range(3)]
+        WorkShiftTypeFactory()
+        RestShiftTypeFactory()
+
         # Create company holiday
         CompanyHolidayFactory(date=date(2025, 1, 15))
-        
-        result = Shift.create_auto_shifts(2025, 1, 'fill_gaps')
-        
-        self.assertTrue(result['success'])
-        self.assertGreater(result['created_count'], 0)
-        self.assertIn('作成し', result['message'])
+
+        result = Shift.create_auto_shifts(2025, 1, "fill_gaps")
+
+        self.assertTrue(result["success"])
+        self.assertGreater(result["created_count"], 0)
+        self.assertIn("作成し", result["message"])
 
     def test_create_auto_shifts_no_employees(self):
         """Test auto shift creation with no employees."""
-        result = Shift.create_auto_shifts(2025, 1, 'fill_gaps')
-        self.assertFalse(result['success'])
-        self.assertIn('従業員が登録されていません', result['error'])
+        result = Shift.create_auto_shifts(2025, 1, "fill_gaps")
+        self.assertFalse(result["success"])
+        self.assertIn("従業員が登録されていません", result["error"])
 
     def test_create_auto_shifts_no_work_shift_types(self):
         """Test auto shift creation with no work shift types."""
         EmployeeFactory()
         RestShiftTypeFactory()
-        
-        result = Shift.create_auto_shifts(2025, 1, 'fill_gaps')
-        self.assertFalse(result['success'])
-        self.assertIn('勤務シフト種別が登録されていません', result['error'])
+
+        result = Shift.create_auto_shifts(2025, 1, "fill_gaps")
+        self.assertFalse(result["success"])
+        self.assertIn("勤務シフト種別が登録されていません", result["error"])
 
     def test_create_auto_shifts_no_rest_shift_type(self):
         """Test auto shift creation with no rest shift type."""
         EmployeeFactory()
         WorkShiftTypeFactory()
-        
-        result = Shift.create_auto_shifts(2025, 1, 'fill_gaps')
-        self.assertFalse(result['success'])
-        self.assertIn('休みシフト種別が登録されていません', result['error'])
+
+        result = Shift.create_auto_shifts(2025, 1, "fill_gaps")
+        self.assertFalse(result["success"])
+        self.assertIn("休みシフト種別が登録されていません", result["error"])
 
     def test_shift_employee_relationship(self):
         employee = EmployeeFactory()
@@ -505,36 +505,37 @@ class ShiftModelTest(TestCase):
     def test_create_auto_shifts_min_workers_compliance(self):
         """Test that auto shift creation respects minimum workers requirement."""
         settings = LaborLawSettingsFactory(min_workers=2, max_consecutive_work_days=6)
-        employees = [EmployeeFactory() for _ in range(3)]
-        work_shift_type = WorkShiftTypeFactory()
-        rest_shift_type = RestShiftTypeFactory()
-        
+        [EmployeeFactory() for _ in range(3)]
+        WorkShiftTypeFactory()
+        RestShiftTypeFactory()
+
         # Create auto shifts
-        result = Shift.create_auto_shifts(2025, 1, 'overwrite')
-        
-        self.assertTrue(result['success'])
-        self.assertGreater(result['created_count'], 0)
-        
+        result = Shift.create_auto_shifts(2025, 1, "overwrite")
+
+        self.assertTrue(result["success"])
+        self.assertGreater(result["created_count"], 0)
+
         # Check that each day has at least min_workers working
         for day in range(1, 32):
             try:
                 target_date = date(2025, 1, day)
                 work_shifts = Shift.objects.filter(
-                    date=target_date,
-                    shift_type__is_work=True
+                    date=target_date, shift_type__is_work=True
                 )
                 work_count = work_shifts.count()
-                
+
                 # Skip company holidays
-                company_holiday = CompanyHoliday.objects.filter(date=target_date).first()
+                company_holiday = CompanyHoliday.objects.filter(
+                    date=target_date
+                ).first()
                 if company_holiday:
                     continue
-                
+
                 # Check minimum workers requirement
                 self.assertGreaterEqual(
-                    work_count, 
+                    work_count,
                     settings.min_workers,
-                    f"Day {day} has only {work_count} workers, but minimum is {settings.min_workers}"
+                    f"Day {day} has only {work_count} workers, but minimum is {settings.min_workers}",
                 )
             except ValueError:
                 # Skip invalid dates (e.g., February 30th)
@@ -544,31 +545,33 @@ class ShiftModelTest(TestCase):
     def test_create_auto_shifts_consecutive_work_days_override(self):
         """Test that consecutive work days limit can be overridden for minimum workers."""
         # 設定: 最低労働者数2人、最大連続勤務日数3日
-        settings = LaborLawSettingsFactory(min_workers=2, max_consecutive_work_days=3)
-        
+        LaborLawSettingsFactory(min_workers=2, max_consecutive_work_days=3)
+
         # 従業員3人を作成
-        employees = [EmployeeFactory() for _ in range(3)]
-        
+        [EmployeeFactory() for _ in range(3)]
+
         # シフト種別を作成
-        work_shift = WorkShiftTypeFactory()
-        rest_shift = RestShiftTypeFactory()
-        
+        WorkShiftTypeFactory()
+        RestShiftTypeFactory()
+
         # 2025年1月の自動シフト作成
         result = Shift.create_auto_shifts(2025, 1)
-        
-        self.assertTrue(result['success'])
-        self.assertGreater(result['created_count'], 0)
-        
+
+        self.assertTrue(result["success"])
+        self.assertGreater(result["created_count"], 0)
+
         # 各日について最低労働者数が満たされていることを確認
         for day in range(1, 32):
             try:
                 target_date = date(2025, 1, day)
                 work_shifts = Shift.objects.filter(
-                    date=target_date,
-                    shift_type__is_work=True
+                    date=target_date, shift_type__is_work=True
                 )
-                self.assertGreaterEqual(work_shifts.count(), 2, 
-                    f"Day {day} has only {work_shifts.count()} workers, need at least 2")
+                self.assertGreaterEqual(
+                    work_shifts.count(),
+                    2,
+                    f"Day {day} has only {work_shifts.count()} workers, need at least 2",
+                )
             except ValueError:
                 # 1月は31日までなので、32日目以降は無視
                 pass
@@ -577,21 +580,21 @@ class ShiftModelTest(TestCase):
     def test_create_auto_shifts_work_days_distribution(self):
         """Test that work days are distributed evenly among employees."""
         # 設定: 最低労働者数1人
-        settings = LaborLawSettingsFactory(min_workers=1, max_consecutive_work_days=6)
-        
+        LaborLawSettingsFactory(min_workers=1, max_consecutive_work_days=6)
+
         # 従業員3人を作成
         employees = [EmployeeFactory() for _ in range(3)]
-        
+
         # シフト種別を作成
-        work_shift = WorkShiftTypeFactory()
-        rest_shift = RestShiftTypeFactory()
-        
+        WorkShiftTypeFactory()
+        RestShiftTypeFactory()
+
         # 2025年1月の自動シフト作成
         result = Shift.create_auto_shifts(2025, 1)
-        
-        self.assertTrue(result['success'])
-        self.assertGreater(result['created_count'], 0)
-        
+
+        self.assertTrue(result["success"])
+        self.assertGreater(result["created_count"], 0)
+
         # 各従業員の勤務日数をカウント
         work_days_by_employee = {}
         for employee in employees:
@@ -599,29 +602,34 @@ class ShiftModelTest(TestCase):
                 employee=employee,
                 date__year=2025,
                 date__month=1,
-                shift_type__is_work=True
+                shift_type__is_work=True,
             ).count()
             work_days_by_employee[employee.id] = work_days
-        
+
         # 勤務日数の分布を確認
         work_days_list = list(work_days_by_employee.values())
         min_work_days = min(work_days_list)
         max_work_days = max(work_days_list)
-        
+
         # 勤務日数の差が7日以内であることを確認（均等化の効果）
-        self.assertLessEqual(max_work_days - min_work_days, 7, 
-            f"Work days distribution is too uneven: min={min_work_days}, max={max_work_days}")
-        
+        self.assertLessEqual(
+            max_work_days - min_work_days,
+            7,
+            f"Work days distribution is too uneven: min={min_work_days}, max={max_work_days}",
+        )
+
         # 最低労働者数が満たされていることを確認
         for day in range(1, 32):
             try:
                 target_date = date(2025, 1, day)
                 work_shifts = Shift.objects.filter(
-                    date=target_date,
-                    shift_type__is_work=True
+                    date=target_date, shift_type__is_work=True
                 )
-                self.assertGreaterEqual(work_shifts.count(), 1, 
-                    f"Day {day} has only {work_shifts.count()} workers, need at least 1")
+                self.assertGreaterEqual(
+                    work_shifts.count(),
+                    1,
+                    f"Day {day} has only {work_shifts.count()} workers, need at least 1",
+                )
             except ValueError:
                 # 1月は31日までなので、32日目以降は無視
                 pass
@@ -630,27 +638,35 @@ class ShiftModelTest(TestCase):
     def test_create_auto_shifts_work_days_distribution_with_existing_shifts(self):
         """Test work days distribution when some shifts already exist."""
         # 設定: 最低労働者数1人
-        settings = LaborLawSettingsFactory(min_workers=1, max_consecutive_work_days=6)
-        
+        LaborLawSettingsFactory(min_workers=1, max_consecutive_work_days=6)
+
         # 従業員3人を作成
         employees = [EmployeeFactory() for _ in range(3)]
-        
+
         # シフト種別を作成
         work_shift = WorkShiftTypeFactory()
         rest_shift = RestShiftTypeFactory()
-        
+
         # 既存のシフトを作成（一部の従業員に偏りを持たせる）
-        ShiftFactory(employee=employees[0], date=date(2025, 1, 1), shift_type=work_shift)
-        ShiftFactory(employee=employees[0], date=date(2025, 1, 2), shift_type=work_shift)
-        ShiftFactory(employee=employees[0], date=date(2025, 1, 3), shift_type=work_shift)
-        ShiftFactory(employee=employees[1], date=date(2025, 1, 1), shift_type=rest_shift)
-        
+        ShiftFactory(
+            employee=employees[0], date=date(2025, 1, 1), shift_type=work_shift
+        )
+        ShiftFactory(
+            employee=employees[0], date=date(2025, 1, 2), shift_type=work_shift
+        )
+        ShiftFactory(
+            employee=employees[0], date=date(2025, 1, 3), shift_type=work_shift
+        )
+        ShiftFactory(
+            employee=employees[1], date=date(2025, 1, 1), shift_type=rest_shift
+        )
+
         # 2025年1月の自動シフト作成（fill_gapsモード）
-        result = Shift.create_auto_shifts(2025, 1, creation_mode='fill_gaps')
-        
-        self.assertTrue(result['success'])
-        self.assertGreater(result['created_count'], 0)
-        
+        result = Shift.create_auto_shifts(2025, 1, creation_mode="fill_gaps")
+
+        self.assertTrue(result["success"])
+        self.assertGreater(result["created_count"], 0)
+
         # 各従業員の勤務日数をカウント
         work_days_by_employee = {}
         for employee in employees:
@@ -658,15 +674,10 @@ class ShiftModelTest(TestCase):
                 employee=employee,
                 date__year=2025,
                 date__month=1,
-                shift_type__is_work=True
+                shift_type__is_work=True,
             ).count()
             work_days_by_employee[employee.id] = work_days
-        
-        # 勤務日数の分布を確認
-        work_days_list = list(work_days_by_employee.values())
-        min_work_days = min(work_days_list)
-        max_work_days = max(work_days_list)
-        
+
         # 既存のシフトがある場合でも、新しく作成されるシフトは均等に分配される
         # ただし、既存の偏りがあるため、完全な均等化は期待できない
         # 最低労働者数は満たされていることを確認
@@ -674,11 +685,13 @@ class ShiftModelTest(TestCase):
             try:
                 target_date = date(2025, 1, day)
                 work_shifts = Shift.objects.filter(
-                    date=target_date,
-                    shift_type__is_work=True
+                    date=target_date, shift_type__is_work=True
                 )
-                self.assertGreaterEqual(work_shifts.count(), 1, 
-                    f"Day {day} has only {work_shifts.count()} workers, need at least 1")
+                self.assertGreaterEqual(
+                    work_shifts.count(),
+                    1,
+                    f"Day {day} has only {work_shifts.count()} workers, need at least 1",
+                )
             except ValueError:
                 # 1月は31日までなので、32日目以降は無視
                 pass
@@ -687,63 +700,72 @@ class ShiftModelTest(TestCase):
     def test_create_auto_shifts_work_days_distribution_with_company_holidays(self):
         """Test work days distribution when company holidays exist."""
         # 設定: 最低労働者数1人
-        settings = LaborLawSettingsFactory(min_workers=1, max_consecutive_work_days=6)
-        
+        LaborLawSettingsFactory(min_workers=1, max_consecutive_work_days=6)
+
         # 従業員3人を作成
         employees = [EmployeeFactory() for _ in range(3)]
-        
+
         # シフト種別を作成
-        work_shift = WorkShiftTypeFactory()
-        rest_shift = RestShiftTypeFactory()
-        
+        WorkShiftTypeFactory()
+        RestShiftTypeFactory()
+
         # 会社休日を作成
         CompanyHolidayFactory(date=date(2025, 1, 1), name="元日")
         CompanyHolidayFactory(date=date(2025, 1, 2), name="振替休日")
-        
+
         # 2025年1月の自動シフト作成
         result = Shift.create_auto_shifts(2025, 1)
-        
-        self.assertTrue(result['success'])
-        self.assertGreater(result['created_count'], 0)
-        
+
+        self.assertTrue(result["success"])
+        self.assertGreater(result["created_count"], 0)
+
         # 会社休日は全員休みになっていることを確認
         for holiday_date in [date(2025, 1, 1), date(2025, 1, 2)]:
             shifts = Shift.objects.filter(date=holiday_date)
             for shift in shifts:
-                self.assertFalse(shift.shift_type.is_work, 
-                    f"Employee {shift.employee.name} is working on holiday {holiday_date}")
-        
+                self.assertFalse(
+                    shift.shift_type.is_work,
+                    f"Employee {shift.employee.name} is working on holiday {holiday_date}",
+                )
+
         # 各従業員の勤務日数をカウント（会社休日を除く）
         work_days_by_employee = {}
         for employee in employees:
-            work_days = Shift.objects.filter(
-                employee=employee,
-                date__year=2025,
-                date__month=1,
-                shift_type__is_work=True
-            ).exclude(date__in=[date(2025, 1, 1), date(2025, 1, 2)]).count()
+            work_days = (
+                Shift.objects.filter(
+                    employee=employee,
+                    date__year=2025,
+                    date__month=1,
+                    shift_type__is_work=True,
+                )
+                .exclude(date__in=[date(2025, 1, 1), date(2025, 1, 2)])
+                .count()
+            )
             work_days_by_employee[employee.id] = work_days
-        
+
         # 勤務日数の分布を確認
         work_days_list = list(work_days_by_employee.values())
         min_work_days = min(work_days_list)
         max_work_days = max(work_days_list)
-        
+
         # 会社休日を除いても、勤務日数は均等に分配される
-        self.assertLessEqual(max_work_days - min_work_days, 7, 
-            f"Work days distribution is too uneven: min={min_work_days}, max={max_work_days}")
+        self.assertLessEqual(
+            max_work_days - min_work_days,
+            7,
+            f"Work days distribution is too uneven: min={min_work_days}, max={max_work_days}",
+        )
 
     def test_shift_check_shift_type_worker_limits_min_workers(self):
         """Test shift check shift type worker limits for min workers."""
         shift_type = ShiftTypeFactory(min_workers=2, max_workers=None)
         employee = EmployeeFactory()
         shift = ShiftFactory(employee=employee, shift_type=shift_type)
-        
+
         # 最低人数を下回る場合の警告
         warning = shift.check_shift_type_worker_limits()
         self.assertIsNotNone(warning)
-        self.assertTrue(warning['warning'])
-        self.assertIn('最低人数', warning['message'])
+        self.assertTrue(warning["warning"])
+        self.assertIn("最低人数", warning["message"])
 
     def test_shift_check_shift_type_worker_limits_max_workers(self):
         """Test shift check shift type worker limits for max workers."""
@@ -751,25 +773,27 @@ class ShiftModelTest(TestCase):
         employee1 = EmployeeFactory()
         employee2 = EmployeeFactory()
         employee3 = EmployeeFactory()
-        
+
         # 既に2人のシフトがある状態で3人目を追加
         ShiftFactory(employee=employee1, shift_type=shift_type, date=date(2025, 1, 1))
         ShiftFactory(employee=employee2, shift_type=shift_type, date=date(2025, 1, 1))
-        
-        shift3 = ShiftFactory(employee=employee3, shift_type=shift_type, date=date(2025, 1, 1))
-        
+
+        shift3 = ShiftFactory(
+            employee=employee3, shift_type=shift_type, date=date(2025, 1, 1)
+        )
+
         # 最大人数を超える場合の警告
         warning = shift3.check_shift_type_worker_limits()
         self.assertIsNotNone(warning)
-        self.assertTrue(warning['warning'])
-        self.assertIn('最大人数', warning['message'])
+        self.assertTrue(warning["warning"])
+        self.assertIn("最大人数", warning["message"])
 
     def test_shift_check_shift_type_worker_limits_rest_shift(self):
         """Test shift check shift type worker limits for rest shift."""
         shift_type = ShiftTypeFactory(is_work=False, min_workers=1, max_workers=2)
         employee = EmployeeFactory()
         shift = ShiftFactory(employee=employee, shift_type=shift_type)
-        
+
         # 休みの場合はチェックしない
         warning = shift.check_shift_type_worker_limits()
         self.assertIsNone(warning)
@@ -799,4 +823,4 @@ class RoleModelTest(TestCase):
         """Test role name uniqueness."""
         RoleFactory(name="ホール")
         with self.assertRaises(Exception):
-            RoleFactory(name="ホール") 
+            RoleFactory(name="ホール")

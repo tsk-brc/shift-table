@@ -27,7 +27,7 @@ test-e2e: ## Run end-to-end tests
 	$(EXEC_CMD) python manage.py test shift.test_files.test_e2e --settings=shift_table.settings_test
 
 lint: ## Run linting
-	$(EXEC_CMD) flake8 shift/ shift_table/ --max-line-length=120 --ignore=E501,W503
+	$(EXEC_CMD) flake8 shift/ shift_table/
 	$(EXEC_CMD) black --check shift/ shift_table/
 
 format: ## Format code
