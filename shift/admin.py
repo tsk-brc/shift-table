@@ -51,7 +51,6 @@ class CompanyHolidayAdmin(admin.ModelAdmin):
 
     def bulk_add_view(self, request):
         """一括追加ビュー"""
-        global jpholiday
         if request.method == "POST":
             form = CompanyHolidayBulkAddForm(request.POST)
             if form.is_valid():
