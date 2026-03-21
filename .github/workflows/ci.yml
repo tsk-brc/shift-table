@@ -1,0 +1,30 @@
+name: CI
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: flake8 shift/ shift_table/ --max-line-length=120 --ignore=E501,W503
+      - run: black --check shift/ shift_table/
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: pytest shift/test_files/ --cov=shift --cov=shift_table --cov-report=term-missing
+        env:
+          DJANGO_SETTINGS_MODULE: shift_table.settings_test
