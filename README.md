@@ -1,23 +1,9 @@
 # Shift Table Management System
 
-シフト管理システム - Django ベースの従業員シフト管理ツール
+[![CI](https://github.com/tsk-brc/shift-table/actions/workflows/ci.yml/badge.svg)](https://github.com/tsk-brc/shift-table/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 開発環境
-
-このプロジェクトは [Cursor](https://cursor.sh/) を使用して開発されています。Cursorは、AIを活用した次世代のコードエディタで、以下の機能により開発効率を大幅に向上させています：
-
-- 🤖 **AI アシスタント**: コードの生成、修正、リファクタリングをAIがサポート
-- 🔍 **インテリジェント検索**: セマンティック検索による高速なコード検索
-- 🧪 **テスト自動化**: テストケースの自動生成と実行
-- 🐛 **デバッグ支援**: AIによるエラー解析と修正提案
-- 📚 **コンテキスト理解**: プロジェクト全体の構造を理解した的確な提案
-
-### Cursorでの開発の利点
-
-- **高速な開発**: AIアシスタントによるコード生成で開発速度が向上
-- **品質向上**: 自動的なテスト生成とリファクタリング提案
-- **学習効果**: AIとの対話を通じたコーディングスキルの向上
-- **チーム協力**: 統一された開発環境での効率的なコラボレーション
+Django ベースの従業員シフト管理システム。月間シフト表の表示・編集、労働法規チェック、自動シフト作成を備えています。
 
 ## 機能
 
@@ -322,18 +308,10 @@ test: テスト追加・修正
 chore: その他の変更
 ```
 
+## 開発ツール
+
+このプロジェクトは [Cursor](https://cursor.sh/) を使用して開発されています。
+
 ## ライセンス
 
-MIT License
-
-## 貢献
-
-1. フォークを作成
-2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
-4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
-5. プルリクエストを作成
-
-## サポート
-
-問題や質問がある場合は、GitHubのIssuesページで報告してください。 
+MIT License 
